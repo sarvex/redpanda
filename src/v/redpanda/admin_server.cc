@@ -715,6 +715,7 @@ ss::httpd::broker_json::maintenance_status fill_maintenance_status(
         ret.eligible = s.eligible.value_or(0);
         ret.failed = s.failed.value_or(0);
     } else {
+        vlog(logger.info, "fill_maintenance_status: no drain status");
         ret.draining = false;
         // ensure that the output json has all fields
         ret.finished = false;
@@ -2158,6 +2159,12 @@ admin_server::get_broker_handler(std::unique_ptr<ss::http::request> req) {
           fmt::format(
             "Unexpected error: {}", maybe_drain_status.error().message()),
           ss::http::reply::status_type::service_unavailable);
+    }
+    if (maybe_drain_status.value().has_value()) {
+        vlog(logger.info, "get_broker_handler: drain status: {}",
+             maybe_drain_status.value().value());
+    } else {
+        vlog(logger.info, "get_broker_handler: no drain status");
     }
 
     ss::httpd::broker_json::broker ret;
