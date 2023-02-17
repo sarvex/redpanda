@@ -17,7 +17,10 @@ import (
 	"time"
 
 	cmapiv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	helmControllerAPIV2 "github.com/fluxcd/helm-controller/api/v2beta1"
 	helmControllerV2 "github.com/fluxcd/helm-controller/controllers"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -51,6 +54,8 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(redpandav1alpha1.AddToScheme(scheme))
 	utilruntime.Must(cmapiv1.AddToScheme(scheme))
+	utilruntime.Must(helmControllerAPIV2.AddToScheme(scheme))
+	utilruntime.Must(sourcev1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -206,13 +211,18 @@ func main() {
 		HTTPRetry:                 9,                // The maximum number of retries when failing to fetch artifacts over HTTP.
 		RateLimiter:               workqueue.NewItemExponentialFailureRateLimiter(30*time.Second, 60*time.Second),
 	}
-	if err = (&redpandacontrollers.RedpandaReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, helmOpts); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Redpanda")
-		os.Exit(1)
+
+	helmRelease := helmControllerV2.HelmReleaseReconciler{}
+	if err = helmRelease.SetupWithManager(mgr, helmOpts); err != nil {
+		setupLog.Error(err, "Unable to create controller", "controller", "HelmRelease")
 	}
+	// if err = (&redpandacontrollers.RedpandaReconciler{
+	// 	Client: mgr.GetClient(),
+	// 	Scheme: mgr.GetScheme(),
+	// }).SetupWithManager(mgr, helmOpts); err != nil {
+	// 	setupLog.Error(err, "unable to create controller", "controller", "Redpanda")
+	// 	os.Exit(1)
+	// }
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {
