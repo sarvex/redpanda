@@ -20,7 +20,7 @@ import (
 	helmControllerAPIV2 "github.com/fluxcd/helm-controller/api/v2beta1"
 	helmControllerV2 "github.com/fluxcd/helm-controller/controllers"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
-
+	helmSourceController "github.com/fluxcd/source-controller/controllers"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -35,10 +35,20 @@ import (
 	redpandav1alpha1 "github.com/redpanda-data/redpanda/src/go/k8s/apis/redpanda/v1alpha1"
 	redpandacontrollers "github.com/redpanda-data/redpanda/src/go/k8s/controllers/redpanda"
 	adminutils "github.com/redpanda-data/redpanda/src/go/k8s/pkg/admin"
-	consolepkg "github.com/redpanda-data/redpanda/src/go/k8s/pkg/console"
 	"github.com/redpanda-data/redpanda/src/go/k8s/pkg/resources"
 	redpandawebhooks "github.com/redpanda-data/redpanda/src/go/k8s/webhooks/redpanda"
 )
+
+// +kubebuilder:rbac:groups=helm.toolkit.fluxcd.io,resources=helmreleases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=helm.toolkit.fluxcd.io,resources=helmreleases/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=helm.toolkit.fluxcd.io,resources=helmreleases/finalizers,verbs=update
+// +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=helmcharts,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=helmcharts/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=helmcharts/finalizers,verbs=get;create;update;patch;delete
+// +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=helmrepositories,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=helmrepositories/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=helmrepositories/finalizers,verbs=get;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 const (
 	defaultConfiguratorContainerImage = "vectorized/configurator"
@@ -162,22 +172,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&redpandacontrollers.ClusterConfigurationDriftReconciler{
-		Client:                    mgr.GetClient(),
-		Log:                       ctrl.Log.WithName("controllers").WithName("redpanda").WithName("ClusterConfigurationDrift"),
-		Scheme:                    mgr.GetScheme(),
-		AdminAPIClientFactory:     adminutils.NewInternalAdminAPI,
-		RestrictToRedpandaVersion: restrictToRedpandaVersion,
-	}).WithClusterDomain(clusterDomain).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "Unable to create controller", "controller", "ClusterConfigurationDrift")
-		os.Exit(1)
-	}
-
-	if err = redpandacontrollers.NewClusterMetricsController(mgr.GetClient()).
-		SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "Unable to create controller", "controller", "ClustersMetrics")
-		os.Exit(1)
-	}
+	//if err = (&redpandacontrollers.ClusterConfigurationDriftReconciler{
+	//	Client:                    mgr.GetClient(),
+	//	Log:                       ctrl.Log.WithName("controllers").WithName("redpanda").WithName("ClusterConfigurationDrift"),
+	//	Scheme:                    mgr.GetScheme(),
+	//	AdminAPIClientFactory:     adminutils.NewInternalAdminAPI,
+	//	RestrictToRedpandaVersion: restrictToRedpandaVersion,
+	//}).WithClusterDomain(clusterDomain).SetupWithManager(mgr); err != nil {
+	//	setupLog.Error(err, "Unable to create controller", "controller", "ClusterConfigurationDrift")
+	//	os.Exit(1)
+	//}
+	//
+	//if err = redpandacontrollers.NewClusterMetricsController(mgr.GetClient()).
+	//	SetupWithManager(mgr); err != nil {
+	//	setupLog.Error(err, "Unable to create controller", "controller", "ClustersMetrics")
+	//	os.Exit(1)
+	//}
 
 	// Setup webhooks
 	if webhookEnabled {
@@ -191,18 +201,18 @@ func main() {
 		hookServer.Register("/validate-redpanda-vectorized-io-v1alpha1-console", &webhook.Admission{Handler: &redpandawebhooks.ConsoleValidator{Client: mgr.GetClient()}})
 	}
 
-	if err = (&redpandacontrollers.ConsoleReconciler{
-		Client:                  mgr.GetClient(),
-		Scheme:                  mgr.GetScheme(),
-		Log:                     ctrl.Log.WithName("controllers").WithName("redpanda").WithName("Console"),
-		AdminAPIClientFactory:   adminutils.NewInternalAdminAPI,
-		Store:                   consolepkg.NewStore(mgr.GetClient(), mgr.GetScheme()),
-		EventRecorder:           mgr.GetEventRecorderFor("Console"),
-		KafkaAdminClientFactory: consolepkg.NewKafkaAdmin,
-	}).WithClusterDomain(clusterDomain).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Console")
-		os.Exit(1)
-	}
+	//if err = (&redpandacontrollers.ConsoleReconciler{
+	//	Client:                  mgr.GetClient(),
+	//	Scheme:                  mgr.GetScheme(),
+	//	Log:                     ctrl.Log.WithName("controllers").WithName("redpanda").WithName("Console"),
+	//	AdminAPIClientFactory:   adminutils.NewInternalAdminAPI,
+	//	Store:                   consolepkg.NewStore(mgr.GetClient(), mgr.GetScheme()),
+	//	EventRecorder:           mgr.GetEventRecorderFor("Console"),
+	//	KafkaAdminClientFactory: consolepkg.NewKafkaAdmin,
+	//}).WithClusterDomain(clusterDomain).SetupWithManager(mgr); err != nil {
+	//	setupLog.Error(err, "unable to create controller", "controller", "Console")
+	//	os.Exit(1)
+	//}
 
 	// TODO fill this in with options
 	helmOpts := helmControllerV2.HelmReleaseReconcilerOptions{
@@ -212,10 +222,23 @@ func main() {
 		RateLimiter:               workqueue.NewItemExponentialFailureRateLimiter(30*time.Second, 60*time.Second),
 	}
 
+	// Helm Release Controller
 	helmRelease := helmControllerV2.HelmReleaseReconciler{}
 	if err = helmRelease.SetupWithManager(mgr, helmOpts); err != nil {
 		setupLog.Error(err, "Unable to create controller", "controller", "HelmRelease")
 	}
+
+	// Helm Release Chart Controller
+	helmChart := helmSourceController.HelmChartReconciler{}
+	if err = helmChart.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Unable to create controller", "controller", "HelmChart")
+	}
+
+	helmRepository := helmSourceController.HelmRepositoryReconciler{}
+	if err = helmRepository.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Unable to create controller", "controller", "HelmRepository")
+	}
+
 	// if err = (&redpandacontrollers.RedpandaReconciler{
 	// 	Client: mgr.GetClient(),
 	// 	Scheme: mgr.GetScheme(),
