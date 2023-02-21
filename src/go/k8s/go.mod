@@ -390,8 +390,6 @@ require (
 )
 
 replace (
-	github.com/docker/docker => github.com/docker/docker v20.10.21+incompatible
 	github.com/opencontainers/go-digest => github.com/opencontainers/go-digest v1.0.1-0.20220411205349-bde1400a84be
-	github.com/redpanda-data/redpanda/src/go/rpk => ../rpk
 	golang.org/x/net => golang.org/x/net v0.5.0
 )
