@@ -273,7 +273,7 @@ func main() {
 		setupLog.Error(err, "Unable to create controller", "controller", "HelmRelease")
 	}
 
-	// Helm Release Chart Controller
+	// Helm Chart Controller
 	helmChart := helmSourceController.HelmChartReconciler{
 		Client:                  mgr.GetClient(),
 		RegistryClientGenerator: clientGenerator,
@@ -286,6 +286,7 @@ func main() {
 		setupLog.Error(err, "Unable to create controller", "controller", "HelmChart")
 	}
 
+	// Helm Repository Controller
 	helmRepository := helmSourceController.HelmRepositoryReconciler{
 		Client:         mgr.GetClient(),
 		EventRecorder:  mgr.GetEventRecorderFor("HelmRepositoryReconciler"),
