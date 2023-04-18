@@ -138,6 +138,7 @@ struct configuration final : public config_store {
     bounded_property<int16_t> default_topic_replication;
     deprecated_property transaction_coordinator_replication;
     deprecated_property id_allocator_replication;
+    property<int32_t> transaction_coordinator_partitions;
     property<model::cleanup_policy_bitflags>
       transaction_coordinator_cleanup_policy;
     property<std::chrono::milliseconds>
@@ -273,6 +274,7 @@ struct configuration final : public config_store {
     property<std::optional<std::chrono::milliseconds>>
       cloud_storage_graceful_transfer_timeout_ms;
     enum_property<model::cloud_storage_backend> cloud_storage_backend;
+    property<std::optional<ss::sstring>> cloud_storage_credentials_host;
 
     // Azure Blob Storage
     property<std::optional<ss::sstring>> cloud_storage_azure_storage_account;
