@@ -47,6 +47,7 @@ ss::future<bool> batched_output_stream::write(ss::scattered_message<char> msg) {
           }
           const size_t vbytes = v.size();
           return _out.write(std::move(v)).then([this, vbytes] {
+              // Should we check for closed here?
               _unflushed_bytes += vbytes;
               if (
                 _write_sem->waiters() == 0 || _unflushed_bytes >= _cache_size) {

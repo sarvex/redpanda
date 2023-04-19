@@ -525,6 +525,8 @@ ss::future<> connection_context::maybe_process_responses() {
               // connection.
               .finally([resources = std::move(resp_and_res.resources)] {});
         } catch (...) {
+          // This wasn't triggered (which makes sense because this is catching sync
+          // errors
             vlog(
               klog.debug,
               "Failed to process request: {}",
