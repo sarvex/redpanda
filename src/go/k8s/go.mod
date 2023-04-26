@@ -14,10 +14,8 @@ require (
 	github.com/fluxcd/pkg/runtime v0.29.0
 	github.com/fluxcd/source-controller v0.35.1
 	github.com/fluxcd/source-controller/api v0.35.1
-	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v1.2.3
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/hashicorp/go-retryablehttp v0.7.2
 	github.com/json-iterator/go v1.1.12
 	github.com/moby/moby v20.10.23+incompatible
 	github.com/moby/sys/mountinfo v0.6.2
@@ -392,6 +390,7 @@ require (
 )
 
 replace (
+	github.com/docker/docker => github.com/docker/docker v20.10.21+incompatible
 	github.com/opencontainers/go-digest => github.com/opencontainers/go-digest v1.0.1-0.20220411205349-bde1400a84be
 	golang.org/x/net => golang.org/x/net v0.5.0
 )
