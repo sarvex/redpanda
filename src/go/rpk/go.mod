@@ -10,7 +10,7 @@ require (
 	github.com/beevik/ntp v0.3.0
 	github.com/cespare/xxhash v1.1.0
 	github.com/coreos/go-systemd/v22 v22.5.0
-	github.com/docker/docker v23.0.0+incompatible
+	github.com/docker/docker v23.0.3+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-units v0.5.0
 	github.com/fatih/color v1.14.1
