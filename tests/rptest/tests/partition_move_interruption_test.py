@@ -60,19 +60,19 @@ class PartitionMoveInterruption(PartitionMovementMixin, EndToEndTest):
         metrics = self.redpanda.metrics_sample(
             "moving_to_node", [node],
             metrics_endpoint=MetricsEndpoint.PUBLIC_METRICS)
-        return int(sum([metric.value for metric in metrics.samples]))
+        return int(sum(metric.value for metric in metrics.samples))
 
     def get_moving_from_node_metrics(self, node):
         metrics = self.redpanda.metrics_sample(
             "moving_from_node", [node],
             metrics_endpoint=MetricsEndpoint.PUBLIC_METRICS)
-        return int(sum([metric.value for metric in metrics.samples]))
+        return int(sum(metric.value for metric in metrics.samples))
 
     def get_cancelling_movements_for_node_metrics(self, node):
         metrics = self.redpanda.metrics_sample(
             "node_cancelling_movements", [node],
             metrics_endpoint=MetricsEndpoint.PUBLIC_METRICS)
-        return int(sum([metric.value for metric in metrics.samples]))
+        return int(sum(metric.value for metric in metrics.samples))
 
     def metrics_correct(self, prev_assignment, assignmets):
         prev_assignment_nodes = [a["node_id"] for a in prev_assignment]
@@ -99,19 +99,37 @@ class PartitionMoveInterruption(PartitionMovementMixin, EndToEndTest):
                 cancelling_movements_for_node: {cancelling_movements_for_node}"
                               )
 
-            if node_id in prev_assignment_nodes and node_id not in assignment_nodes:
-                if moving_to_node_partitions_amount != 0 or \
-                    moving_from_node_partitions_amount != 1:
-                    return False
-            elif node_id not in prev_assignment_nodes and node_id in assignment_nodes:
-                if moving_to_node_partitions_amount != 1 or \
-                    moving_from_node_partitions_amount != 0:
-                    return False
-            else:
-                if moving_to_node_partitions_amount != 0 or \
-                    moving_from_node_partitions_amount != 0:
-                    return False
-
+            if (
+                node_id in prev_assignment_nodes
+                and node_id not in assignment_nodes
+                and (
+                    moving_to_node_partitions_amount != 0
+                    or moving_from_node_partitions_amount != 1
+                )
+                or (
+                    node_id not in prev_assignment_nodes
+                    or node_id in assignment_nodes
+                )
+                and node_id not in prev_assignment_nodes
+                and node_id in assignment_nodes
+                and (
+                    moving_to_node_partitions_amount != 1
+                    or moving_from_node_partitions_amount != 0
+                )
+                or (
+                    node_id not in prev_assignment_nodes
+                    or node_id in assignment_nodes
+                )
+                and (
+                    node_id in prev_assignment_nodes
+                    or node_id not in assignment_nodes
+                )
+                and (
+                    moving_to_node_partitions_amount != 0
+                    or moving_from_node_partitions_amount != 0
+                )
+            ):
+                return False
             if cancelling_movements_for_node != 0:
                 return False
 
@@ -343,7 +361,7 @@ class PartitionMoveInterruption(PartitionMovementMixin, EndToEndTest):
                                            partition=partition)
 
         # drop one of the replicas, new quorum requires both of them to be up
-        new_assignment = assignment[0:2]
+        new_assignment = assignment[:2]
 
         self.logger.info(
             f"new assignment for {self.topic}/{partition}: {new_assignment}")
@@ -433,15 +451,15 @@ class PartitionMoveInterruption(PartitionMovementMixin, EndToEndTest):
                             consumer_timeout_sec=self.consumer_timeout_seconds,
                             min_records=self.min_records)
 
-    def is_moving_to_node(previous_replicas, current_replicas, id):
-        return is_in_replica_set(
-            current_replicas,
-            id) and not is_in_replica_set(previous_replicas, id)
+    def is_moving_to_node(self, current_replicas, id):
+        return is_in_replica_set(current_replicas, id) and not is_in_replica_set(
+            self, id
+        )
 
-    def is_moving_from_node(previous_replicas, current_replicas, id):
-        return is_in_replica_set(
-            previous_replicas,
-            id) and not is_in_replica_set(current_replicas, id)
+    def is_moving_from_node(self, current_replicas, id):
+        return is_in_replica_set(self, id) and not is_in_replica_set(
+            current_replicas, id
+        )
 
     @cluster(num_nodes=7)
     def test_cancelling_all_moves_from_node(self):
@@ -505,7 +523,7 @@ class PartitionMoveInterruption(PartitionMovementMixin, EndToEndTest):
         def has_no_node_reconfigurations():
             ongoing = admin.list_reconfigurations()
 
-            return len([o for o in ongoing if is_node_reconfiguration(o)]) == 0
+            return not [o for o in ongoing if is_node_reconfiguration(o)]
 
         wait_until(has_no_node_reconfigurations, 60, 1)
 
@@ -514,10 +532,10 @@ class PartitionMoveInterruption(PartitionMovementMixin, EndToEndTest):
                             min_records=self.min_records)
 
     def get_node_by_id(self, id):
-        for n in self.redpanda.nodes:
-            if self.redpanda.node_id(n) == id:
-                return n
-        return None
+        return next(
+            (n for n in self.redpanda.nodes if self.redpanda.node_id(n) == id),
+            None,
+        )
 
     @cluster(num_nodes=7, log_allow_list=RESTART_LOG_ALLOW_LIST)
     def test_cancelling_partition_move_node_down(self):
@@ -567,8 +585,7 @@ class PartitionMoveInterruption(PartitionMovementMixin, EndToEndTest):
             leader_id = admin.get_partition_leader(namespace="redpanda",
                                                    topic="controller",
                                                    partition=0)
-            return leader_id != -1 and leader_id != self.redpanda.node_id(
-                to_stop)
+            return leader_id not in [-1, self.redpanda.node_id(     to_stop)]
 
         wait_until(new_controller, 30)
 

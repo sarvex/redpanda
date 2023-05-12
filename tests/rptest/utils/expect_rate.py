@@ -92,7 +92,7 @@ class ExpectRate:
                 elapsed_count = m.count - samples[interval_start].count
                 elapsed_msec = m.timestamp - samples[interval_start].timestamp
                 rate = elapsed_count / (elapsed_msec / 1000.0)
-                if target.target_min_rate <= rate and rate <= target.target_max_rate:
+                if target.target_min_rate <= rate <= target.target_max_rate:
                     self.logger.info(
                         f"Rate target met: {rate:.1f} {self.units}/sec " +
                         f"over the last {elapsed_msec/1000:.3f} sec.")

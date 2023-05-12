@@ -32,17 +32,17 @@ class OMBSampleConfigurations:
     E2E_LATENCY_MAX = "aggregatedEndToEndLatencyMax"
     AVG_THROUGHPUT_MBPS = "throughputMBps"
 
-    def range(min_val, max_val):
-        return (lambda x: x >= min_val and x <= max_val,
-                f"Expected in range [{min_val}, {max_val}], check failed.")
+    def range(self, max_val):
+        return (
+            lambda x: x >= self and x <= max_val,
+            f"Expected in range [{self}, {max_val}], check failed.",
+        )
 
-    def lte(max_val):
-        return (lambda x: x <= max_val,
-                f"Expected to be <= {max_val}, check failed.")
+    def lte(self):
+        return lambda x: x <= self, f"Expected to be <= {self}, check failed."
 
-    def gte(min_val):
-        return (lambda x: x >= min_val,
-                f"Expected to be >= {min_val}, check failed.")
+    def gte(self):
+        return lambda x: x >= self, f"Expected to be >= {self}, check failed."
 
     # Values here are empirical based on historical runs across releases.
     # Typically e2e latency numbers are sub 8-9ms.
@@ -87,23 +87,25 @@ class OMBSampleConfigurations:
         AVG_THROUGHPUT_MBPS: [gte(600)]
     }
 
-    def validate_metrics(metrics, validator):
+    def validate_metrics(self, validator):
         """ Validates some predefined metrics rules against the metrics data and throws if any of the rules fail."""
-        assert len(metrics) == 1, "Unexpected metrics output {metrics}}"
-        metrics = next(iter(metrics.values()))
+        assert len(self) == 1, "Unexpected metrics output {metrics}}"
+        self = next(iter(self.values()))
         results = []
         kv_str = lambda k, v: f"Metric {k}, value {v}, "
         count = 0
-        for key in metrics.keys():
+        for key in self.keys():
             if key not in validator:
                 continue
-            val = metrics[key]
+            val = self[key]
             count = count + 1
-            for rule in validator[key]:
-                if not rule[0](val):
-                    results.append(kv_str(key, val) + rule[1])
-        assert count > 0, f"At least one metric should be validated {metrics}"
-        assert len(results) == 0, str(results)
+            results.extend(
+                kv_str(key, val) + rule[1]
+                for rule in validator[key]
+                if not rule[0](val)
+            )
+        assert count > 0, f"At least one metric should be validated {self}"
+        assert not results, str(results)
 
     # ------ Driver configurations --------
     SIMPLE_DRIVER = {

@@ -39,8 +39,8 @@ def is_int(msg):
         return int(msg)
     except ValueError:
         raise Exception(
-            "Unexpected message format (expected an integer). Message: %s" %
-            (msg))
+            f"Unexpected message format (expected an integer). Message: {msg}"
+        )
 
 
 def is_int_with_prefix(msg):
@@ -169,8 +169,9 @@ class VerifiableProducer(BackgroundThreadService):
         return prop_file
 
     def _worker(self, idx, node):
-        node.account.ssh("mkdir -p %s" % VerifiableProducer.PERSISTENT_ROOT,
-                         allow_fail=False)
+        node.account.ssh(
+            f"mkdir -p {VerifiableProducer.PERSISTENT_ROOT}", allow_fail=False
+        )
 
         # Create and upload log properties
         log_config = self.render('tools_log4j.properties',
@@ -250,11 +251,8 @@ class VerifiableProducer(BackgroundThreadService):
                         time_delta_sec = t - last_produced_time
                         if time_delta_sec > 2 and prev_msg is not None:
                             self.logger.debug(
-                                "Time delta between successively acked messages is large: "
-                                +
-                                "delta_t_sec: %s, prev_message: %s, current_message: %s"
-                                % (str(time_delta_sec), str(prev_msg),
-                                   str(data)))
+                                f"Time delta between successively acked messages is large: delta_t_sec: {str(time_delta_sec)}, prev_message: {str(prev_msg)}, current_message: {str(data)}"
+                            )
 
                         last_produced_time = t
                         prev_msg = data
@@ -268,44 +266,38 @@ class VerifiableProducer(BackgroundThreadService):
 
     def start_cmd(self, idx):
         cmd = "java -cp /opt/redpanda-tests/java/e2e-verifiers/target/e2e-verifiers-1.0.jar"
-        cmd += " -Dlog4j.configuration=file:%s" % VerifiableProducer.LOG4J_CONFIG
+        cmd += f" -Dlog4j.configuration=file:{VerifiableProducer.LOG4J_CONFIG}"
         cmd += " org.apache.kafka.tools.VerifiableProducer "
-        cmd += " --topic %s --broker-list %s" % (self.topic,
-                                                 self.redpanda.brokers())
+        cmd += f" --topic {self.topic} --broker-list {self.redpanda.brokers()}"
         if self.max_messages > 0:
-            cmd += " --max-messages %s" % str(self.max_messages)
+            cmd += f" --max-messages {str(self.max_messages)}"
         if self.throughput > 0:
-            cmd += " --throughput %s" % str(self.throughput)
+            cmd += f" --throughput {str(self.throughput)}"
         if self.message_validator == is_int_with_prefix:
-            cmd += " --value-prefix %s" % str(idx)
+            cmd += f" --value-prefix {str(idx)}"
         if self.acks is not None:
-            cmd += " --acks %s " % str(self.acks)
+            cmd += f" --acks {str(self.acks)} "
         if self.create_time > -1:
-            cmd += " --message-create-time %s " % str(self.create_time)
+            cmd += f" --message-create-time {str(self.create_time)} "
         if self.repeating_keys is not None:
-            cmd += " --repeating-keys %s " % str(self.repeating_keys)
+            cmd += f" --repeating-keys {str(self.repeating_keys)} "
 
-        cmd += " --producer.config %s" % VerifiableProducer.CONFIG_FILE
+        cmd += f" --producer.config {VerifiableProducer.CONFIG_FILE}"
 
-        cmd += " 2>> %s | tee -a %s &" % (VerifiableProducer.STDOUT_CAPTURE,
-                                          VerifiableProducer.STDOUT_CAPTURE)
+        cmd += f" 2>> {VerifiableProducer.STDOUT_CAPTURE} | tee -a {VerifiableProducer.STDOUT_CAPTURE} &"
         return cmd
 
     def kill_node(self, node, clean_shutdown=True, allow_fail=False):
-        sig = signal.SIGTERM
-        if not clean_shutdown:
-            sig = signal.SIGKILL
+        sig = signal.SIGKILL if not clean_shutdown else signal.SIGTERM
         for pid in self.pids(node):
             node.account.signal(pid, sig, allow_fail)
 
     def pids(self, node):
         try:
             cmd = "jps | grep -i VerifiableProducer | awk '{print $1}'"
-            pid_arr = [
-                pid for pid in node.account.ssh_capture(
-                    cmd, allow_fail=True, callback=int)
-            ]
-            return pid_arr
+            return list(
+                node.account.ssh_capture(cmd, allow_fail=True, callback=int)
+            )
         except (RemoteCommandError, ValueError):
             return []
 
@@ -344,11 +336,11 @@ class VerifiableProducer(BackgroundThreadService):
 
     def each_produced_at_least(self, count):
         with self.lock:
-            for idx in range(1, self.num_nodes + 1):
-                if self.produced_count.get(
-                        idx) is None or self.produced_count[idx] < count:
-                    return False
-            return True
+            return not any(
+                self.produced_count.get(idx) is None
+                or self.produced_count[idx] < count
+                for idx in range(1, self.num_nodes + 1)
+            )
 
     def stop_node(self, node):
         # There is a race condition on shutdown if using `max_messages` since the
@@ -357,18 +349,18 @@ class VerifiableProducer(BackgroundThreadService):
         allow_fail = self.max_messages > 0
         self.kill_node(node, clean_shutdown=True, allow_fail=allow_fail)
         stopped = self.wait_node(node, timeout_sec=self.stop_timeout_sec)
-        assert stopped, "Node %s: did not stop within the specified timeout of %s seconds" % \
-                        (str(node.account), str(self.stop_timeout_sec))
+        assert (
+            stopped
+        ), f"Node {str(node.account)}: did not stop within the specified timeout of {str(self.stop_timeout_sec)} seconds"
 
     def clean_node(self, node):
         self.kill_node(node, clean_shutdown=False, allow_fail=False)
-        node.account.ssh("rm -rf " + self.PERSISTENT_ROOT, allow_fail=False)
+        node.account.ssh(f"rm -rf {self.PERSISTENT_ROOT}", allow_fail=False)
 
     def try_parse_json(self, string):
         """Try to parse a string as json. Return None if not parseable."""
         try:
-            record = json.loads(string)
-            return record
+            return json.loads(string)
         except ValueError:
-            self.logger.debug("Could not parse as json: %s" % str(string))
+            self.logger.debug(f"Could not parse as json: {str(string)}")
             return None

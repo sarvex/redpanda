@@ -80,7 +80,7 @@ class NodeMetricsTest(RedpandaTest):
         # logic is covered by local_monitor_test.cc
         alerts = self.node_metrics.disk_space_alert()
         assert len(alerts) == 3  # for each node
-        assert all([x >= 0 for x in alerts])
+        assert all(x >= 0 for x in alerts)
 
         # We want to use up storage and verify that our free space decreases.
         # This is currently complicated by our docker test setup; running it

@@ -106,9 +106,19 @@ class Bindfs(Operations):
         self.prologue("getattr")
         target = self.get_mapped_location(path)
         lstat = os.lstat(target)
-        return dict((key, getattr(lstat, key))
-                    for key in ('st_atime', 'st_ctime', 'st_gid', 'st_mode',
-                                'st_mtime', 'st_nlink', 'st_size', 'st_uid'))
+        return {
+            key: getattr(lstat, key)
+            for key in (
+                'st_atime',
+                'st_ctime',
+                'st_gid',
+                'st_mode',
+                'st_mtime',
+                'st_nlink',
+                'st_size',
+                'st_uid',
+            )
+        }
 
     def link(self, target, name):
         self.prologue("link")
@@ -127,10 +137,8 @@ class Bindfs(Operations):
         self.prologue("readdir")
         target = self.get_mapped_location(path)
         if os.path.isdir(target):
-            for item in os.listdir(target):
-                yield item
-        for m in ['.', '..']:
-            yield m
+            yield from os.listdir(target)
+        yield from ['.', '..']
 
     def readlink(self, path):
         self.prologue("readlink")
@@ -154,10 +162,21 @@ class Bindfs(Operations):
         self.prologue("statfs")
         target = self.get_mapped_location(path)
         stv = os.statvfs(target)
-        return dict((key, getattr(stv, key))
-                    for key in ('f_bavail', 'f_bfree', 'f_blocks', 'f_bsize',
-                                'f_favail', 'f_ffree', 'f_files', 'f_flag',
-                                'f_frsize', 'f_namemax'))
+        return {
+            key: getattr(stv, key)
+            for key in (
+                'f_bavail',
+                'f_bfree',
+                'f_blocks',
+                'f_bsize',
+                'f_favail',
+                'f_ffree',
+                'f_files',
+                'f_flag',
+                'f_frsize',
+                'f_namemax',
+            )
+        }
 
     def symlink(self, name, target):
         self.prologue("symlink")
@@ -232,7 +251,7 @@ def fuse_delay(op_name, delay_ms):
         bindfs.io_op_delay_ms[op_name] = int(delay_ms)
         return {"status": "ok"}
     else:
-        return {"status": "fail", "error": "op " + op_name + " isn't found"}
+        return {"status": "fail", "error": f"op {op_name} isn't found"}
 
 
 @app.route('/ruin/<op_name>', methods=['GET'])
@@ -245,7 +264,7 @@ def fuse_ruin(op_name):
         bindfs.io_op_should_fail[op_name] = True
         return {"status": "ok"}
     else:
-        return {"status": "fail", "error": "op " + op_name + " isn't found"}
+        return {"status": "fail", "error": f"op {op_name} isn't found"}
 
 
 @app.route('/recover', methods=['GET'])

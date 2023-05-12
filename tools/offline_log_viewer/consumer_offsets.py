@@ -7,7 +7,7 @@ import datetime
 
 
 def decode_key_type(v):
-    if v == 0 or v == 1:
+    if v in [0, 1]:
         return "offset_commit"
     elif v == 2:
         return "group_metadata"
@@ -16,15 +16,13 @@ def decode_key_type(v):
 
 
 def decode_member_proto(rdr):
-    ret = {}
-    ret['name'] = rdr.read_string()
+    ret = {'name': rdr.read_string()}
     ret['metadata'] = rdr.read_iobuf().hex()
     return ret
 
 
 def decode_member(rdr):
-    ret = {}
-    ret['v'] = rdr.read_int16()
+    ret = {'v': rdr.read_int16()}
     ret['member_id'] = rdr.read_kafka_string()
     ret['instance_id'] = rdr.read_kafka_optional_string()
     ret['client_id'] = rdr.read_kafka_string()
@@ -40,8 +38,7 @@ def decode_member(rdr):
 
 
 def decode_metadata(rdr):
-    ret = {}
-    ret['version'] = rdr.read_int16()
+    ret = {'version': rdr.read_int16()}
     ret['protocol_type'] = rdr.read_kafka_string()
     ret['generation_id'] = rdr.read_int32()
     ret['protocol_name'] = rdr.read_kafka_optional_string()
@@ -52,9 +49,8 @@ def decode_metadata(rdr):
 
 
 def decode_key(key_rdr):
-    ret = {}
     v = key_rdr.read_int16()
-    ret['type'] = decode_key_type(v)
+    ret = {'type': decode_key_type(v)}
     ret['group_id'] = key_rdr.read_kafka_string()
     if ret['type'] == 'offset_commit':
         ret['topic'] = key_rdr.read_kafka_string()
@@ -64,8 +60,7 @@ def decode_key(key_rdr):
 
 
 def decode_offset_commit(v_rdr):
-    ret = {}
-    ret['version'] = v_rdr.read_int16()
+    ret = {'version': v_rdr.read_int16()}
     ret['committed_offset'] = v_rdr.read_int64()
     if ret['version'] >= 3:
         ret['leader_epoch'] = v_rdr.read_int32()
@@ -79,28 +74,29 @@ def decode_offset_commit(v_rdr):
 
 
 def decode_record(hdr, r):
-    v = {}
-    v['epoch'] = hdr.first_ts
-    v['offset'] = hdr.base_offset + r.offset_delta
-    v['ts'] = datetime.datetime.utcfromtimestamp(
-        hdr.first_ts / 1000.0).strftime('%Y-%m-%d %H:%M:%S')
+    v = {
+        'epoch': hdr.first_ts,
+        'offset': hdr.base_offset + r.offset_delta,
+        'ts': datetime.datetime.utcfromtimestamp(
+            hdr.first_ts / 1000.0
+        ).strftime('%Y-%m-%d %H:%M:%S'),
+    }
     k_rdr = Reader(BytesIO(r.key), endianness=Endianness.BIG_ENDIAN)
 
     v['key'] = decode_key(k_rdr)
 
-    if v['key']['type'] == "group_metadata":
-        if r.value:
-            rdr = Reader(BytesIO(r.value), endianness=Endianness.BIG_ENDIAN)
-            v['value'] = decode_metadata(rdr)
-        else:
-            v['value'] = 'tombstone'
+    if v['key']['type'] == "group_metadata" and r.value:
+        rdr = Reader(BytesIO(r.value), endianness=Endianness.BIG_ENDIAN)
+        v['value'] = decode_metadata(rdr)
+    elif (
+        v['key']['type'] == "group_metadata"
+        or v['key']['type'] == "offset_commit"
+        and not r.value
+    ):
+        v['value'] = 'tombstone'
     elif v['key']['type'] == "offset_commit":
-        if r.value:
-            rdr = Reader(BytesIO(r.value), endianness=Endianness.BIG_ENDIAN)
-            v['value'] = decode_offset_commit(rdr)
-        else:
-            v['value'] = 'tombstone'
-
+        rdr = Reader(BytesIO(r.value), endianness=Endianness.BIG_ENDIAN)
+        v['value'] = decode_offset_commit(rdr)
     return v
 
 
@@ -110,10 +106,7 @@ class OffsetsLog:
         self.records = []
 
     def decode(self):
-        paths = []
-        for path in self.ntp.segments:
-            paths.append(path)
-        paths.sort()
+        paths = sorted(self.ntp.segments)
         for path in paths:
             s = Segment(path)
             for b in s:

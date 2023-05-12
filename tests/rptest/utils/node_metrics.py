@@ -5,7 +5,7 @@ from rptest.services.redpanda import RedpandaService, MetricsEndpoint
 
 
 def all_greater_than_zero(l1: list[float]):
-    return all([x > 0 for x in l1])
+    return all(x > 0 for x in l1)
 
 
 class NodeMetrics:

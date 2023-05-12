@@ -36,7 +36,7 @@ from rptest.util import inject_remote_script, search_logs_with_timeout
 
 
 def create_topic_names(count):
-    return list(f"pandaproxy-topic-{uuid.uuid4()}" for _ in range(count))
+    return [f"pandaproxy-topic-{uuid.uuid4()}" for _ in range(count)]
 
 
 HTTP_GET_HEADERS = {"Accept": "application/vnd.schemaregistry.v1+json"}
@@ -113,7 +113,7 @@ class SchemaRegistryEndpoints(RedpandaTest):
         if hostname is None:
             # Pick hostname once: we will retry the same place we got an error,
             # to avoid silently skipping hosts that are persistently broken
-            nodes = [n for n in self.redpanda.nodes]
+            nodes = list(self.redpanda.nodes)
             random.shuffle(nodes)
             node = nodes[0]
             hostname = node.account.hostname
@@ -221,11 +221,7 @@ class SchemaRegistryEndpoints(RedpandaTest):
         return self._request("GET", "config", headers=headers, **kwargs)
 
     def _set_config(self, data, headers=HTTP_POST_HEADERS, **kwargs):
-        return self._request("PUT",
-                             f"config",
-                             headers=headers,
-                             data=data,
-                             **kwargs)
+        return self._request("PUT", "config", headers=headers, data=data, **kwargs)
 
     def _get_config_subject(self,
                             subject,
@@ -256,11 +252,13 @@ class SchemaRegistryEndpoints(RedpandaTest):
                            headers=HTTP_GET_HEADERS,
                            tls_enabled: bool = False,
                            **kwargs):
-        return self._request("GET",
-                             f"schemas/types",
-                             headers=headers,
-                             tls_enabled=tls_enabled,
-                             **kwargs)
+        return self._request(
+            "GET",
+            "schemas/types",
+            headers=headers,
+            tls_enabled=tls_enabled,
+            **kwargs
+        )
 
     def _get_schemas_ids_id(self, id, headers=HTTP_GET_HEADERS, **kwargs):
         return self._request("GET",
@@ -385,11 +383,11 @@ class SchemaRegistryTestMethods(SchemaRegistryEndpoints):
         """
         Verify the schema registry returns the supported types
         """
-        self.logger.debug(f"Request schema types with no accept header")
+        self.logger.debug("Request schema types with no accept header")
         result_raw = self._get_schemas_types(headers={})
         assert result_raw.status_code == requests.codes.ok
 
-        self.logger.debug(f"Request schema types with defautl accept header")
+        self.logger.debug("Request schema types with defautl accept header")
         result_raw = self._get_schemas_types()
         assert result_raw.status_code == requests.codes.ok
         result = result_raw.json()
@@ -473,7 +471,7 @@ class SchemaRegistryTestMethods(SchemaRegistryEndpoints):
 
         topic = create_topic_names(1)[0]
 
-        self.logger.debug(f"Register a schema against a subject")
+        self.logger.debug("Register a schema against a subject")
         schema_1_data = json.dumps({"schema": schema1_def})
 
         self.logger.debug("Get empty subjects")
@@ -547,7 +545,7 @@ class SchemaRegistryTestMethods(SchemaRegistryEndpoints):
         assert result_raw.status_code == requests.codes.not_found
         result = result_raw.json()
         assert result["error_code"] == 40402
-        assert result["message"] == f"Version 2 not found."
+        assert result["message"] == "Version 2 not found."
 
         self.logger.debug("Get schema version 1 for subject key")
         result_raw = self._get_subjects_subject_versions_version(
@@ -674,7 +672,7 @@ class SchemaRegistryTestMethods(SchemaRegistryEndpoints):
         assert result_raw.status_code == requests.codes.not_found
         result = result_raw.json()
         assert result["error_code"] == 40403
-        assert result["message"] == f"Schema not found"
+        assert result["message"] == "Schema not found"
 
     @cluster(num_nodes=3)
     def test_config(self):
@@ -748,7 +746,7 @@ class SchemaRegistryTestMethods(SchemaRegistryEndpoints):
 
         topic = create_topic_names(1)[0]
 
-        self.logger.debug(f"Register a schema against a subject")
+        self.logger.debug("Register a schema against a subject")
         schema_1_data = json.dumps({"schema": schema1_def})
         schema_2_data = json.dumps({"schema": schema2_def})
         schema_3_data = json.dumps({"schema": schema3_def})
@@ -808,7 +806,7 @@ class SchemaRegistryTestMethods(SchemaRegistryEndpoints):
 
         topic = create_topic_names(1)[0]
 
-        self.logger.debug(f"Register a schema against a subject")
+        self.logger.debug("Register a schema against a subject")
         schema_1_data = json.dumps({"schema": schema1_def})
         schema_2_data = json.dumps({"schema": schema2_def})
         schema_3_data = json.dumps({"schema": schema3_def})
@@ -882,7 +880,7 @@ class SchemaRegistryTestMethods(SchemaRegistryEndpoints):
 
         topic = create_topic_names(1)[0]
 
-        self.logger.debug(f"Register a schema against a subject")
+        self.logger.debug("Register a schema against a subject")
         schema_1_data = json.dumps({"schema": schema1_def})
         schema_2_data = json.dumps({"schema": schema2_def})
         schema_3_data = json.dumps({"schema": schema3_def})
@@ -1136,16 +1134,14 @@ class SchemaRegistryTestMethods(SchemaRegistryEndpoints):
         assert result_raw.status_code == requests.codes.ok
         assert result_raw.json()["id"] == 2
 
-        result_raw = self._request("GET",
-                                   f"subjects/simple/versions/1/schema",
-                                   headers=HTTP_GET_HEADERS)
+        result_raw = self._request(
+            "GET", "subjects/simple/versions/1/schema", headers=HTTP_GET_HEADERS
+        )
         self.logger.info(result_raw)
         assert result_raw.status_code == requests.codes.ok
         assert result_raw.text.strip() == simple_proto_def.strip()
 
-        result_raw = self._request("GET",
-                                   f"schemas/ids/1",
-                                   headers=HTTP_GET_HEADERS)
+        result_raw = self._request("GET", "schemas/ids/1", headers=HTTP_GET_HEADERS)
         self.logger.info(result_raw)
         assert result_raw.status_code == requests.codes.ok
         result = result_raw.json()
@@ -1405,7 +1401,7 @@ class SchemaRegistryBasicAuthTest(SchemaRegistryEndpoints):
 
         super_username, super_password, _ = self.redpanda.SUPERUSER_CREDENTIALS
 
-        self.logger.debug(f"Request schema types with default accept header")
+        self.logger.debug("Request schema types with default accept header")
         result_raw = self._get_schemas_types(auth=(super_username,
                                                    super_password))
         assert result_raw.status_code == requests.codes.ok
@@ -1640,7 +1636,7 @@ class SchemaRegistryBasicAuthTest(SchemaRegistryEndpoints):
 
         topic = create_topic_names(1)[0]
 
-        self.logger.debug(f"Register a schema against a subject")
+        self.logger.debug("Register a schema against a subject")
         schema_1_data = json.dumps({"schema": schema1_def})
 
         super_username, super_password, _ = self.redpanda.SUPERUSER_CREDENTIALS
@@ -1684,7 +1680,7 @@ class SchemaRegistryBasicAuthTest(SchemaRegistryEndpoints):
 
         topic = create_topic_names(1)[0]
 
-        self.logger.debug(f"Register a schema against a subject")
+        self.logger.debug("Register a schema against a subject")
         schema_1_data = json.dumps({"schema": schema1_def})
 
         super_username, super_password, _ = self.redpanda.SUPERUSER_CREDENTIALS
@@ -1729,7 +1725,7 @@ class SchemaRegistryBasicAuthTest(SchemaRegistryEndpoints):
 
         topic = create_topic_names(1)[0]
 
-        self.logger.debug(f"Register a schema against a subject")
+        self.logger.debug("Register a schema against a subject")
         schema_1_data = json.dumps({"schema": schema1_def})
 
         super_username, super_password, _ = self.redpanda.SUPERUSER_CREDENTIALS
@@ -1832,18 +1828,22 @@ class SchemaRegistryBasicAuthTest(SchemaRegistryEndpoints):
         assert result_raw.status_code == requests.codes.ok
         assert result_raw.json()["id"] == 2
 
-        result_raw = self._request("GET",
-                                   f"subjects/simple/versions/1/schema",
-                                   headers=HTTP_GET_HEADERS,
-                                   auth=(super_username, super_password))
+        result_raw = self._request(
+            "GET",
+            "subjects/simple/versions/1/schema",
+            headers=HTTP_GET_HEADERS,
+            auth=(super_username, super_password),
+        )
         self.logger.info(result_raw)
         assert result_raw.status_code == requests.codes.ok
         assert result_raw.text.strip() == simple_proto_def.strip()
 
-        result_raw = self._request("GET",
-                                   f"schemas/ids/1",
-                                   headers=HTTP_GET_HEADERS,
-                                   auth=(super_username, super_password))
+        result_raw = self._request(
+            "GET",
+            "schemas/ids/1",
+            headers=HTTP_GET_HEADERS,
+            auth=(super_username, super_password),
+        )
         self.logger.info(result_raw)
         assert result_raw.status_code == requests.codes.ok
         result = result_raw.json()

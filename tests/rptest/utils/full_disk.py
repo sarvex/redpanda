@@ -31,17 +31,14 @@ class FullDiskHelper:
     def _set_low_space(self, degraded):
         victim = random.choice(self.redpanda.nodes)
         new_threshold: int = 0
-        if degraded:
-            new_threshold = 2**60  # arbitrary huge value
-        else:
-            new_threshold = 2**30  # smallest supported value
+        new_threshold = 2**60 if degraded else 2**30
         updates = {self.CONF_MIN_FREE_BYTES: new_threshold}
         self.logger.debug(f" victim {victim.name}, " +
                           f"new_thresh {new_threshold}")
         self.redpanda.set_cluster_config(updates)
 
         # self.admin.patch_cluster_config(upsert=updates, remove=[])
-        self.logger.debug(f"Confirming new config values..")
+        self.logger.debug("Confirming new config values..")
         self._wait_for_node_config_value(self.CONF_MIN_FREE_BYTES,
                                          new_threshold)
 

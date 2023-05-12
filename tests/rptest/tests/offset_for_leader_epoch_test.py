@@ -31,7 +31,7 @@ class OffsetForLeaderEpochTest(PreallocNodesTest):
 
         for n in self.redpanda.nodes:
             partitions = admin.get_partitions(node=n)
-            if not all([p['leader'] != -1 for p in partitions]):
+            if any(p['leader'] == -1 for p in partitions):
                 return False
 
         return True
@@ -73,8 +73,10 @@ class OffsetForLeaderEpochTest(PreallocNodesTest):
 
         def all_offsets_present():
             update_offset_map()
-            return all([l != -1 for _, l in offsets_map.items()
-                        ]) and len(offsets_map) == total_partitions
+            return (
+                all(l != -1 for _, l in offsets_map.items())
+                and len(offsets_map) == total_partitions
+            )
 
         wait_until(all_offsets_present, 30, 1)
         return offsets_map
@@ -85,17 +87,16 @@ class OffsetForLeaderEpochTest(PreallocNodesTest):
         cleanup_policies = [
             TopicSpec.CLEANUP_COMPACT, TopicSpec.CLEANUP_DELETE
         ]
-        topics = []
-
-        for i in range(0, 10):
-            topics.append(
-                TopicSpec(
-                    partition_count=random.randint(1, 50),
-                    replication_factor=random.choice(replication_factors),
-                    cleanup_policy=random.choice(cleanup_policies)))
-
+        topics = [
+            TopicSpec(
+                partition_count=random.randint(1, 50),
+                replication_factor=random.choice(replication_factors),
+                cleanup_policy=random.choice(cleanup_policies),
+            )
+            for _ in range(0, 10)
+        ]
         topic_names = [t.name for t in topics]
-        total_partitions = sum([t.partition_count for t in topics])
+        total_partitions = sum(t.partition_count for t in topics)
         # create test topics
         self.client().create_topic(topics)
 
@@ -183,10 +184,7 @@ class OffsetForLeaderEpochTest(PreallocNodesTest):
                 offsets = kcl.offset_for_leader_epoch(topics=[topic.name],
                                                       leader_epoch=epoch)
                 offsets_for_leader_epoch.extend(offsets)
-                return all([
-                    ofle.epoch_end_offset != -1
-                    for ofle in offsets_for_leader_epoch
-                ])
+                return all(ofle.epoch_end_offset != -1 for ofle in offsets_for_leader_epoch)
 
             wait_until(have_all_offsets, 30, 1)
 
@@ -204,7 +202,7 @@ class OffsetForLeaderEpochTest(PreallocNodesTest):
 
             def all_offsets_valid():
                 refresh()
-                return all([p.high_watermark >= 0 for p in offsets])
+                return all(p.high_watermark >= 0 for p in offsets)
 
             wait_until(all_offsets_valid, 30, 1)
 

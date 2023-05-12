@@ -184,7 +184,7 @@ class KgoVerifierWithSiTest(KgoVerifierBase):
         self._producer.wait_for_acks(10000, timeout_sec=300, backoff_sec=5)
 
         objects = list(self.redpanda.get_objects_from_si())
-        assert len(objects) > 0
+        assert objects
         for o in objects:
             self.logger.info(f"S3 object: {o.key}, {o.content_length}")
 

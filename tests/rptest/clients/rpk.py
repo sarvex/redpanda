@@ -40,14 +40,8 @@ class RpkException(Exception):
         self.returncode = returncode
 
     def __str__(self):
-        if self.stderr:
-            err = f" error: {self.stderr}"
-        else:
-            err = ""
-        if self.returncode:
-            retcode = f" returncode: {self.returncode}"
-        else:
-            retcode = ""
+        err = f" error: {self.stderr}" if self.stderr else ""
+        retcode = f" returncode: {self.returncode}" if self.returncode else ""
         return f"RpkException<{self.msg}{err}{retcode}>"
 
 
@@ -63,9 +57,7 @@ class RpkPartition:
         self.start_offset = start_offset
 
     def __str__(self):
-        return "id: {}, leader: {}, leader_epoch: {} replicas: {}, hw: {}, start_offset: {}".format(
-            self.id, self.leader, self.leader_epoch, self.replicas,
-            self.high_watermark, self.start_offset)
+        return f"id: {self.id}, leader: {self.leader}, leader_epoch: {self.leader_epoch} replicas: {self.replicas}, hw: {self.high_watermark}, start_offset: {self.start_offset}"
 
     def __eq__(self, other):
         if other is None:
@@ -155,7 +147,7 @@ def parse_rpk_table(out):
         m = re.match("^([^ ]+)( *)", header)
         if not m:
             raise RpkException(f"can't parse header: '{lines[0]}'")
-        columns.append(RpkColumnHeader(m.group(1), len(m.group(2))))
+        columns.append(RpkColumnHeader(m[1], len(m[2])))
         header = header[columns[-1].width():]
         if columns[-1].name in seen_names:
             raise RpkException(
@@ -169,10 +161,7 @@ def parse_rpk_table(out):
         for column in columns:
             value = None
             if column == columns[-1]:
-                if position < len(line):
-                    value = line[position:]
-                else:
-                    value = ""
+                value = line[position:] if position < len(line) else ""
             else:
                 if position + column.width() < len(line):
                     if line[position + column.width() - 1] != ' ':
@@ -335,7 +324,7 @@ class RpkTool:
             f'{timeout}s', '-f', '%v', topic
         ]
         if headers:
-            cmd += ['-H ' + h for h in headers]
+            cmd += [f'-H {h}' for h in headers]
         if partition is not None:
             cmd += ['-p', str(partition)]
 
@@ -346,7 +335,7 @@ class RpkTool:
 
         m = re.search(r"at offset (\d+)", out)
         assert m, f"Reported offset not found in: {out}"
-        return int(m.group(1))
+        return int(m[1])
 
     def describe_topic(self, topic: str, tolerant: bool = False):
         """
@@ -363,18 +352,21 @@ class RpkTool:
         """
         def int_or_none(value):
             m = re.match("^-?\d+$", value)
-            if m:
-                return int(value)
-            return None
+            return int(value) if m else None
 
         cmd = ['describe', topic, '-p']
         output = self._run_topic(cmd)
         table = parse_rpk_table(output)
 
-        expected_columns = set([
-            "PARTITION", "LEADER", "EPOCH", "REPLICAS", "LOG-START-OFFSET",
-            "HIGH-WATERMARK", "LAST-STABLE-OFFSET"
-        ])
+        expected_columns = {
+            "PARTITION",
+            "LEADER",
+            "EPOCH",
+            "REPLICAS",
+            "LOG-START-OFFSET",
+            "HIGH-WATERMARK",
+            "LAST-STABLE-OFFSET",
+        }
         received_columns = set()
 
         for column in table.columns:
@@ -397,7 +389,7 @@ class RpkTool:
 
         partitions = []
         for row in table.rows:
-            obj = dict()
+            obj = {}
             obj["LAST-STABLE-OFFSET"] = "-"
             obj["EPOCH"] = "-1"
             for i in range(0, len(table.columns)):
@@ -407,10 +399,7 @@ class RpkTool:
             obj["LEADER"] = int(obj["LEADER"])
             obj["EPOCH"] = int(obj["EPOCH"])
             m = re.match("^\[(.+)\]$", obj["REPLICAS"])
-            if m:
-                obj["REPLICAS"] = list(map(int, m.group(1).split(" ")))
-            else:
-                obj["REPLICAS"] = None
+            obj["REPLICAS"] = list(map(int, m[1].split(" "))) if m else None
             obj["LOG-START-OFFSET"] = int_or_none(obj["LOG-START-OFFSET"])
             obj["HIGH-WATERMARK"] = int_or_none(obj["HIGH-WATERMARK"])
             obj["LAST-STABLE-OFFSET"] = int_or_none(obj["LAST-STABLE-OFFSET"])
@@ -578,11 +567,7 @@ class RpkTool:
                                      host=m['host'])
 
         def try_describe_group(group):
-            if summary:
-                cmd = ["describe", "-s", group]
-            else:
-                cmd = ["describe", group]
-
+            cmd = ["describe", "-s", group] if summary else ["describe", group]
             try:
                 out = self._run_group(cmd)
             except RpkException as e:
@@ -637,7 +622,7 @@ class RpkTool:
         # try to wait for leadership to stabilize.
         while rpk_group is None and attempts != 0:
             rpk_group = try_describe_group(group)
-            attempts = attempts - 1
+            attempts -= 1
             # give time for redpanda to end its election
             if rpk_group is None:
                 time.sleep(0.5)
@@ -751,9 +736,9 @@ class RpkTool:
             if m is None:
                 return None
 
-            address = f"{m.group('host')}:{m.group('port')}"
+            address = f"{m['host']}:{m['port']}"
 
-            return RpkClusterInfoNode(id=int(m.group('id')), address=address)
+            return RpkClusterInfoNode(id=int(m['id']), address=address)
 
         cmd = [
             self._rpk_binary(), 'cluster', 'info', '--brokers',
@@ -1023,10 +1008,7 @@ class RpkTool:
         # foobar
 
         # Output only has a "CLUSTER" section if cluster id is set
-        if lines[0] != "CLUSTER":
-            return None
-        else:
-            return lines[2]
+        return None if lines[0] != "CLUSTER" else lines[2]
 
     def license_set(self, path, license=""):
         cmd = [
@@ -1060,7 +1042,7 @@ class RpkTool:
             )
             matched = [regex.match(x) for x in output]
             failed_matches = [x for x in matched if x is None]
-            if len(failed_matches) > 0:
+            if failed_matches:
                 raise RuntimeError("Failed to parse offset-delete output")
             return [
                 RpkOffsetDeleteResponsePartition(x['topic'],
@@ -1076,12 +1058,10 @@ class RpkTool:
             matched = regex.match(output[0])
             if matched is None:
                 raise RuntimeError("Failed to parse offset-delete output")
-            return RpkOffsetDeleteResponsePartition(None, None,
-                                                    matched.group(1),
-                                                    matched.group(2))
+            return RpkOffsetDeleteResponsePartition(None, None, matched[1], matched[2])
 
         def try_offset_delete(retries=5):
-            retriable_codes = set(['NOT_COORDINATOR'])
+            retriable_codes = {'NOT_COORDINATOR'}
             while retries > 0:
                 try:
                     output = self._execute(cmd)

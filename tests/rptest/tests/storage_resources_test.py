@@ -100,7 +100,7 @@ class StorageResourceTest(RedpandaTest):
 
         segments = self._get_segments()
         assert len(segments) >= 2
-        for sealed_seg in segments[0:-1]:
+        for sealed_seg in segments[:-1]:
             assert sealed_seg.base_index is not None
             assert sealed_seg.compaction_index is not None
         live_seg = segments[-1]

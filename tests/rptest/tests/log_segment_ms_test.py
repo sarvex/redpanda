@@ -94,8 +94,9 @@ class SegmentMsTest(RedpandaTest):
         consumer.stop()
         producer.stop()
         stop_count = self._total_segments_count(topic)
-        assert producer.num_acked == consumer.total_consumed(), \
-            f"failed to preserve the messages across segment rolling"
+        assert (
+            producer.num_acked == consumer.total_consumed()
+        ), "failed to preserve the messages across segment rolling"
 
         assert stop_count >= start_count
 
@@ -194,6 +195,8 @@ class SegmentMsTest(RedpandaTest):
 
         rpk.alter_topic_config(topic.name, "segment.ms", SERVER_SEGMENT_MS)
 
-        wait_until(lambda: self._total_segments_count(topic) > middle_count,
-                   timeout_sec=SERVER_HOUSEKEEPING_LOOP * 2,
-                   err_msg=f"failed to roll a segment in a timely manner")
+        wait_until(
+            lambda: self._total_segments_count(topic) > middle_count,
+            timeout_sec=SERVER_HOUSEKEEPING_LOOP * 2,
+            err_msg="failed to roll a segment in a timely manner",
+        )

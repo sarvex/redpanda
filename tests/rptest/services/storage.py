@@ -26,7 +26,7 @@ class Segment:
 
         m = re.match(r"^(\d+)\-\d+\-v\d+$", name)
         assert m, f"Unexpected segment name {name}"
-        self.offset = m.group(1)
+        self.offset = m[1]
 
     def add_file(self, fn, ext):
         assert fn
@@ -55,9 +55,7 @@ class Segment:
         self.size = s
 
     def __repr__(self):
-        return "{}:{}{}{}".format(self.name, "D" if self.data_file else "d",
-                                  "B" if self.base_index else "b",
-                                  "C" if self.compaction_index else "c")
+        return f'{self.name}:{"D" if self.data_file else "d"}{"B" if self.base_index else "b"}{"C" if self.compaction_index else "c"}'
 
 
 class Partition:
@@ -67,7 +65,7 @@ class Partition:
         self.node = node
         self.path = path
         self.files = set()
-        self.segments = dict()
+        self.segments = {}
 
     def add_files(self, files):
         self.files = set(files)
@@ -116,14 +114,14 @@ class Partition:
         return int(mtime)
 
     def __repr__(self):
-        return "part-{}-{}-{}".format(self.node.name, self.num, self.segments)
+        return f"part-{self.node.name}-{self.num}-{self.segments}"
 
 
 class Topic:
     def __init__(self, name, path):
         self.name = name
         self.path = path
-        self.partitions = dict()
+        self.partitions = {}
 
     def add_partition(self, num, node_id, path):
         (idx, rev) = num.split("_")
@@ -139,7 +137,7 @@ class Namespace:
     def __init__(self, name, path):
         self.name = name
         self.path = path
-        self.topics = dict()
+        self.topics = {}
 
     def add_topic(self, topic, path):
         t = Topic(topic, path)
@@ -157,7 +155,7 @@ class PartitionNotFoundError(Exception):
 class NodeStorage:
     def __init__(self, name, data_dir):
         self.data_dir = data_dir
-        self.ns = dict()
+        self.ns = {}
         self.name = name
 
     def add_namespace(self, ns, path):
@@ -166,10 +164,9 @@ class NodeStorage:
         return n
 
     def partitions(self, ns, topic):
-        if ns in self.ns:
-            if topic in self.ns[ns].topics:
-                parts = self.ns[ns].topics[topic].partitions
-                return [p[1] for p in parts.items()]
+        if ns in self.ns and topic in self.ns[ns].topics:
+            parts = self.ns[ns].topics[topic].partitions
+            return [p[1] for p in parts.items()]
         return []
 
     def segments(self, ns: str, topic: str,

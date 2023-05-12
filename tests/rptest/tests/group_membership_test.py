@@ -216,11 +216,10 @@ class GroupMetricsTest(RedpandaTest):
         if metric is None:
             return None
         metric = metric.label_filter(dict(group=group))
-        res = {}
-        for sample in metric.samples:
-            res[(sample.labels['topic'],
-                 sample.labels['partition'])] = sample.value
-        return res
+        return {
+            (sample.labels['topic'], sample.labels['partition']): sample.value
+            for sample in metric.samples
+        }
 
     @cluster(num_nodes=3)
     def test_check_value(self):
@@ -270,7 +269,7 @@ class GroupMetricsTest(RedpandaTest):
         topics = self.topics
         group = "g0"
 
-        for i in range(100):
+        for _ in range(100):
             payload = str(random.randint(0, 1000))
             for topic_spec in topics:
                 for p in range(topic_spec.partition_count):
@@ -313,9 +312,7 @@ class GroupMetricsTest(RedpandaTest):
             metrics_offsets = self._get_offset_from_metrics(group)
             if metric_key not in metrics_offsets:
                 return False
-            if metrics_offsets[metric_key] <= 0:
-                return False
-            return True
+            return metrics_offsets[metric_key] > 0
 
         wait_until(lambda: check_metric(),
                    timeout_sec=10,
@@ -379,10 +376,10 @@ class GroupMetricsTest(RedpandaTest):
                 self.logger.debug(
                     f"Retrieved metric from node={metric.node.account.hostname}: {metric}"
                 )
-            return all([
+            return all(
                 metric.node.account.hostname == node.account.hostname
                 for metric in metrics
-            ])
+            )
 
         # repeat the following test a few times.
         #

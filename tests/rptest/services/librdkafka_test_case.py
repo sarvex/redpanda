@@ -37,8 +37,7 @@ class LibrdkafkaTestcase(BackgroundThreadService):
         self.error = None
 
     def _worker(self, _idx, node):
-        node.account.ssh("mkdir -p %s" % LibrdkafkaTestcase.ROOT,
-                         allow_fail=False)
+        node.account.ssh(f"mkdir -p {LibrdkafkaTestcase.ROOT}", allow_fail=False)
         # configure test cases
         node.account.create_file(
             LibrdkafkaTestcase.CONF_FILE,
@@ -70,4 +69,4 @@ class LibrdkafkaTestcase(BackgroundThreadService):
         pass
 
     def clean_node(self, node):
-        node.account.ssh("rm -rf " + self.ROOT, allow_fail=False)
+        node.account.ssh(f"rm -rf {self.ROOT}", allow_fail=False)

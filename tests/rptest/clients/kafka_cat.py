@@ -84,8 +84,8 @@ class KafkaCat:
                 if retry == 0:
                     raise
                 self._redpanda.logger.debug(
-                    "kcat retrying after exit code {}: {}".format(
-                        e.returncode, e.output))
+                    f"kcat retrying after exit code {e.returncode}: {e.output}"
+                )
                 time.sleep(2)
 
     def get_partition_leader(self, topic, partition, timeout_sec=None):
@@ -107,13 +107,10 @@ class KafkaCat:
                                  backoff_sec=2)
 
     def _get_partition_leader(self, topic, partition):
-        topic_meta = None
         all_metadata = self.metadata()
-        for t in all_metadata['topics']:
-            if t['topic'] == topic:
-                topic_meta = t
-                break
-
+        topic_meta = next(
+            (t for t in all_metadata['topics'] if t['topic'] == topic), None
+        )
         # Raise AssertionError if user queried a topic that does not exist
         assert topic_meta is not None
 
@@ -122,10 +119,7 @@ class KafkaCat:
 
         leader_id = partition['leader']
         replicas = [p['id'] for p in partition['replicas']]
-        if leader_id == -1:
-            return None, replicas
-        else:
-            return leader_id, replicas
+        return (None, replicas) if leader_id == -1 else (leader_id, replicas)
 
     def list_offsets(self, topic, partition):
         def cmd(ts):

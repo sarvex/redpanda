@@ -25,14 +25,12 @@ def parse_api_versions_response(line):
     match = usable_api_re.match(line)
     if match is None:
         match = unusable_api_re.match(line)
-        if match is None:
-            return None
-    return match.groups()
+    return None if match is None else match.groups()
 
 
 class ApiVersionResponseParser:
     def __init__(self, match_grps):
-        assert len(match_grps) == 2 or len(match_grps) == 5
+        assert len(match_grps) in {2, 5}
         self.api_name = match_grps[0]
         self.api_key = int(match_grps[1])
         self.is_unsupported = True

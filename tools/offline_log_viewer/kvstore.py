@@ -18,8 +18,7 @@ class SnapshotBatch:
         self.type = BatchType(header[3])
 
     def __iter__(self):
-        for r in self.records:
-            yield r
+        yield from self.records
 
     @staticmethod
     def from_stream(f):
@@ -46,7 +45,7 @@ class SnapshotBatch:
 
         records = []
 
-        for i in range(0, header.record_count):
+        for _ in range(0, header.record_count):
             sz = rdr.read_uint32()
             attr = rdr.read_int8()
             ts = rdr.read_int64()
@@ -89,12 +88,13 @@ class KvStoreRecordDecoder:
     def decode(self):
 
         assert self.batch_type == BatchType.kvstore
-        ret = {}
-        ret['epoch'] = self.header.first_ts
-        ret['offset'] = self.header.base_offset + self.offset_delta
-        ret['ts'] = datetime.datetime.utcfromtimestamp(
-            self.header.first_ts / 1000.0).strftime('%Y-%m-%d %H:%M:%S')
-
+        ret = {
+            'epoch': self.header.first_ts,
+            'offset': self.header.base_offset + self.offset_delta,
+            'ts': datetime.datetime.utcfromtimestamp(
+                self.header.first_ts / 1000.0
+            ).strftime('%Y-%m-%d %H:%M:%S'),
+        }
         k_rdr = Reader(self.k_stream)
 
         keyspace = k_rdr.read_int8()
@@ -108,11 +108,7 @@ class KvStoreRecordDecoder:
             data = data_rdr.read_optional(lambda r: r.read_iobuf())
         else:
             data = self.record.value
-        if data:
-            ret['data'] = data
-        else:
-            ret['data'] = None
-
+        ret['data'] = data if data else None
         return ret
 
 
@@ -176,8 +172,7 @@ class KvSnapshot:
 
 
 def read_vnode(rdr):
-    ret = {}
-    ret['id'] = rdr.read_int32()
+    ret = {'id': rdr.read_int32()}
     ret['revision'] = rdr.read_int64()
     return ret
 
@@ -195,8 +190,7 @@ def read_configurations_map(rdr):
 
 def decode_raft_key(k):
     rdr = Reader(BytesIO(k))
-    ret = {}
-    ret['type'] = rdr.read_int8()
+    ret = {'type': rdr.read_int8()}
     ret['name'] = decode_raft_meta_key(ret['type'])
     ret['group'] = rdr.read_int64()
     return ret
@@ -204,13 +198,8 @@ def decode_raft_key(k):
 
 def decode_offset_translator_key(k):
     rdr = Reader(BytesIO(k))
-    ret = {}
-    ret['type'] = rdr.read_int8()
-    if ret['type'] == 0:
-        ret['name'] = "offset_map"
-    else:
-        ret['name'] = 'highest_known_offset'
-
+    ret = {'type': rdr.read_int8()}
+    ret['name'] = "offset_map" if ret['type'] == 0 else 'highest_known_offset'
     ret['group'] = rdr.read_int64()
     return ret
 
@@ -226,8 +215,7 @@ def decode_storage_key_name(key_type):
 
 def decode_storage_key(k):
     rdr = Reader(BytesIO(k))
-    ret = {}
-    ret['type'] = rdr.read_int8()
+    ret = {'type': rdr.read_int8()}
     ret['name'] = decode_storage_key_name(ret['type'])
     ret['ntp'] = read_ntp(rdr)
     return ret
@@ -265,9 +253,7 @@ def decode_raft_meta_key(type):
 def decode_storage_value(type, v):
     rdr = Reader(BytesIO(v))
     ret = {}
-    if type == 0:  # start offset
-        return rdr.read_int64()
-    return ret
+    return rdr.read_int64() if type == 0 else ret
 
 
 def decode_offset_translator_value(type, v):
@@ -302,22 +288,16 @@ def decode_value(dk, v):
 def decode_raft_value(type, v):
     rdr = Reader(BytesIO(v))
 
-    if type == 0:  # voted for
-        ret = {}
-        ret['vnode'] = read_vnode(rdr)
+    if type == 0:
+        ret = {'vnode': read_vnode(rdr)}
         ret['term'] = rdr.read_int64()
         return ret
-    elif type == 1:  # config map
+    elif type == 1:
         return read_configurations_map(rdr)
-    elif type == 2:  # config_latest_known_offset
+    elif type in [2, 3, 5]:
         return rdr.read_int64()
-    elif type == 3:  # last_applied_offset
-        return rdr.read_int64()
-    elif type == 4:  # unique_local_id
+    elif type == 4:
         return None
-    elif type == 5:  # config_next_cfg_idx
-        return rdr.read_int64()
-
     return None
 
 

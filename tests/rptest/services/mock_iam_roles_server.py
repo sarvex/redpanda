@@ -55,10 +55,8 @@ class MockIamRolesServer(HttpServer):
     def pids(self, node):
         try:
             cmd = f"ps ax | grep {self.script} | grep -v grep | awk '{{print $1}}'"
-            pid_arr = [
-                pid for pid in node.account.ssh_capture(
-                    cmd, allow_fail=True, callback=int)
-            ]
-            return pid_arr
+            return list(
+                node.account.ssh_capture(cmd, allow_fail=True, callback=int)
+            )
         except (RemoteCommandError, ValueError):
             return []

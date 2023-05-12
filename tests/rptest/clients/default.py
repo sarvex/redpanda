@@ -34,7 +34,7 @@ class TopicConfigValue(typing.NamedTuple):
     def __eq__(self, other):
         if isinstance(other, TopicConfigValue):
             return self.value == other.value and self.source == other.source
-        assert isinstance(other, str) or isinstance(other, int)
+        assert isinstance(other, (str, int))
         return self.value == other
 
 

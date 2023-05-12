@@ -63,9 +63,9 @@ class Type:
         elif self._basic_type == BasicType.IOBUF:
             return "iobuf"
         elif self._basic_type == BasicType.VECTOR:
-            return "std::vector<{}>".format(self._template_type)
+            return f"std::vector<{self._template_type}>"
         elif self._basic_type == BasicType.OPTIONAL:
-            return "std::optional<{}>".format(self._template_type)
+            return f"std::optional<{self._template_type}>"
         elif self._basic_type == BasicType.STRUCT:
             return self._template_type._name
         else:
@@ -82,7 +82,7 @@ class Field:
         self._type = field_type
 
     def __str__(self):
-        return "{} {};".format(self._type, self._name)
+        return f"{self._type} {self._name};"
 
 
 class Struct:
@@ -178,9 +178,9 @@ types = [
 
 
 def gen_fields(id):
-    ids = [randrange(len(types)) for i in range(3)]
+    ids = [randrange(len(types)) for _ in range(3)]
     return [
-        Field(name="_f{}".format(id + field_idx), field_type=types[type_id])
+        Field(name=f"_f{id + field_idx}", field_type=types[type_id])
         for field_idx, type_id in enumerate(ids)
     ]
 
@@ -195,19 +195,24 @@ def gen_struct(version: int, compat_version: int):
     extend_fields_2 = gen_fields(len(base_fields) + len(extend_fields_1))
     struct_idx += 1
     return [
-        Struct(name="my_struct_{}_v1".format(struct_idx),
-               field_generations=[base_fields],
-               version=version,
-               compat_version=compat_version),
-        Struct(name="my_struct_{}_v2".format(struct_idx),
-               field_generations=[base_fields, extend_fields_1],
-               version=version + 1,
-               compat_version=compat_version),
         Struct(
-            name="my_struct_{}_v3".format(struct_idx),
+            name=f"my_struct_{struct_idx}_v1",
+            field_generations=[base_fields],
+            version=version,
+            compat_version=compat_version,
+        ),
+        Struct(
+            name=f"my_struct_{struct_idx}_v2",
+            field_generations=[base_fields, extend_fields_1],
+            version=version + 1,
+            compat_version=compat_version,
+        ),
+        Struct(
+            name=f"my_struct_{struct_idx}_v3",
             field_generations=[base_fields, extend_fields_1, extend_fields_2],
             version=version + 2,
-            compat_version=compat_version)
+            compat_version=compat_version,
+        ),
     ]
 
 
@@ -223,8 +228,8 @@ def extend_type_list(struct_type: Type):
 
 def gen_structs(version, compat_version):
     structs = [[], [], []]
-    for i in range(3):
-        for j in range(3):
+    for _ in range(3):
+        for _ in range(3):
             previous = gen_struct(version, compat_version)
             extend_type_list(Type(BasicType.STRUCT, previous[0]))
             structs[0].append(previous[0])

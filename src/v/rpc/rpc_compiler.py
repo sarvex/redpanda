@@ -241,12 +241,13 @@ def _enrich_methods(service):
     logger.info(service)
 
     service["id"] = zlib.crc32(
-        bytes("%s:%s" % (service["namespace"], service["service_name"]),
-              "utf-8"))
+        bytes(f'{service["namespace"]}:{service["service_name"]}', "utf-8")
+    )
 
     def _xor_id(m):
-        mid = ("%s:" % service["namespace"]).join(
-            [m["name"], m["input_type"], m["output_type"]])
+        mid = f'{service["namespace"]}:'.join(
+            [m["name"], m["input_type"], m["output_type"]]
+        )
         return service["id"] ^ zlib.crc32(bytes(mid, 'utf-8'))
 
     for m in service["methods"]:
@@ -283,7 +284,7 @@ def main():
 
     parser = generate_options()
     options, program_options = parser.parse_known_args()
-    logger.info("%s" % options)
+    logger.info(f"{options}")
     _codegen(_enrich_methods(_read_file(options.service_file)),
              options.output_file)
 

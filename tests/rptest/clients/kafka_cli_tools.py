@@ -70,9 +70,7 @@ sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule require
         args += ["--partitions", str(spec.partition_count)]
         args += ["--replication-factor", str(spec.replication_factor)]
         if spec.cleanup_policy:
-            args += [
-                "--config", "cleanup.policy={}".format(spec.cleanup_policy)
-            ]
+            args += ["--config", f"cleanup.policy={spec.cleanup_policy}"]
         if spec.segment_bytes:
             args += ["--config", f"segment.bytes={spec.segment_bytes}"]
         if spec.retention_bytes:
@@ -107,10 +105,9 @@ sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule require
         self._redpanda.logger.debug(
             f"Creating topic: {name}, custom assignment: {assignments}")
 
-        partitions = []
-        for assignment in assignments:
-            partitions.append(":".join(str(r) for r in assignment))
-
+        partitions = [
+            ":".join(str(r) for r in assignment) for assignment in assignments
+        ]
         args = ["--create"]
         args += ["--topic", name]
         args += ["--replica-assignment", ",".join(partitions)]
@@ -207,12 +204,15 @@ sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule require
     def alter_topic_config(self, topic, configuration_map):
         self._redpanda.logger.debug("Altering topic %s configuration with %s",
                                     topic, configuration_map)
-        args = ["--topic", topic, "--alter"]
-        args.append("--add-config")
-        args.append(",".join(
-            map(lambda item: f"{item[0]}={item[1]}",
-                configuration_map.items())))
-
+        args = [
+            "--topic",
+            topic,
+            "--alter",
+            "--add-config",
+            ",".join(
+                map(lambda item: f"{item[0]}={item[1]}", configuration_map.items())
+            ),
+        ]
         return self._run("kafka-configs.sh", args)
 
     def produce(self,
@@ -230,9 +230,10 @@ sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule require
         cmd += ["--throughput", str(throughput)]
         cmd += [
             "--producer-props",
-            "acks=%d" % acks, "client.id=ducktape",
+            "acks=%d" % acks,
+            "client.id=ducktape",
             "batch.size=%d" % batch_size,
-            "bootstrap.servers=%s" % self._redpanda.brokers()
+            f"bootstrap.servers={self._redpanda.brokers()}",
         ]
         self._execute(cmd)
 
@@ -280,7 +281,7 @@ sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule require
             json.dump(reassignments, json_file)
             json_file.close()
 
-            args = args + ["--reassignment-json-file", json_file.name]
+            args += ["--reassignment-json-file", json_file.name]
 
             def do_reassign_partitions():
                 nonlocal output
@@ -425,4 +426,4 @@ sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule require
 
     def _script(self, script):
         version = self._version or KafkaCliTools.VERSIONS[0]
-        return "/opt/kafka-{}/bin/{}".format(version, script)
+        return f"/opt/kafka-{version}/bin/{script}"

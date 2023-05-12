@@ -48,7 +48,7 @@ def check_node_ids_persist(redpanda):
 def wait_for_node_removed(admin, node_id):
     def node_removed():
         brokers = admin.get_brokers()
-        return not any(b["node_id"] == node_id for b in brokers)
+        return all(b["node_id"] != node_id for b in brokers)
 
     wait_until(node_removed, timeout_sec=30, backoff_sec=1)
 

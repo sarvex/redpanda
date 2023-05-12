@@ -159,7 +159,7 @@ class NodeStatusStartupTest(RedpandaTest):
     @cluster(num_nodes=3)
     def test_late_joiner(self):
         # Start the first two nodes
-        self.redpanda.start(self.redpanda.nodes[0:-1])
+        self.redpanda.start(self.redpanda.nodes[:-1])
         late_joiner = self.redpanda.nodes[-1]
 
         # Check the cluster status with the unavailable node

@@ -177,7 +177,7 @@ class ScalingUpTest(EndToEndTest):
                                             self.group_topic_partitions
                                         })
         # start single node cluster
-        self.redpanda.start(nodes=self.redpanda.nodes[0:3])
+        self.redpanda.start(nodes=self.redpanda.nodes[:3])
         # create some topics
         topics = []
         total_replicas = self.create_topics(rf=3,
@@ -210,7 +210,7 @@ class ScalingUpTest(EndToEndTest):
                                             self.group_topic_partitions
                                         })
         # start single node cluster
-        self.redpanda.start(nodes=self.redpanda.nodes[0:3])
+        self.redpanda.start(nodes=self.redpanda.nodes[:3])
         # create some topics
         total_replicas = self.create_topics(rf=3,
                                             partition_count=partition_count)
@@ -251,12 +251,12 @@ class ScalingUpTest(EndToEndTest):
                                             "node_add"
                                         })
         # start 3 nodes cluster
-        self.redpanda.start(nodes=self.redpanda.nodes[0:3])
+        self.redpanda.start(nodes=self.redpanda.nodes[:3])
         # create some topics
         total_replicas = 0
         topics = []
+        partitions = 30
         for _ in range(1, 5):
-            partitions = 30
             spec = TopicSpec(partition_count=partitions, replication_factor=3)
             total_replicas += partitions * 3
             topics.append(spec)

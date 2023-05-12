@@ -90,26 +90,21 @@ class RandomNodeOperationsTest(PreallocNodesTest):
             return
 
         if self.redpanda.dedicated_nodes:
-            # scale test setup
-            self.max_partitions = 32
             self.producer_throughput = 20000
             self.node_operations = 30
             self.msg_size = 1024  # 1KiB
             self.rate_limit = 100 * 1024 * 1024  # 100 MBps
             self.total_data = 5 * 1024 * 1024 * 1024
         else:
-            # container test setup
-            if num_to_upgrade > 0:
-                self.should_skip = True
-
-            self.max_partitions = 32
             self.producer_throughput = 1000 if self.debug_mode else 10000
             self.node_operations = 10
             self.msg_size = 128
             self.rate_limit = 1024 * 1024
             self.total_data = 50 * 1024 * 1024
 
-        self.consumers_count = int(self.max_partitions / 4)
+        # scale test setup
+        self.max_partitions = 32
+        self.consumers_count = self.max_partitions // 4
         self.msg_count = int(self.total_data / self.msg_size)
 
         self.logger.info(
@@ -284,8 +279,7 @@ class RandomNodeOperationsTest(PreallocNodesTest):
                                                 operations_interval=3)
 
         self.admin_fuzz.start()
-        self.active_node_idxs = set(
-            [self.redpanda.idx(n) for n in self.redpanda.nodes])
+        self.active_node_idxs = {self.redpanda.idx(n) for n in self.redpanda.nodes}
 
         fi = None
         if enable_failures:

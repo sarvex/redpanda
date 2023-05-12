@@ -180,10 +180,10 @@ class DescribeTopicsTest(RedpandaTest):
                 last_pos = i
                 break
 
-            name = prop_match.group("name")
-            config_type = prop_match.group("type")
-            value = prop_match.group("value")
-            source_type = prop_match.group("src")
+            name = prop_match["name"]
+            config_type = prop_match["type"]
+            value = prop_match["value"]
+            source_type = prop_match["src"]
             self.logger.debug(
                 f"name: {name}, type: {config_type}, value: {value}, src: {source_type}"
             )
@@ -217,7 +217,7 @@ class DescribeTopicsTest(RedpandaTest):
 
             name_match = name_re.match(name_line)
             assert name_match is not None
-            name = name_match.group("name")
+            name = name_match["name"]
             assert name in properties
             prop = properties[name]
             assert doc_string == prop.doc_string

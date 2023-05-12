@@ -30,7 +30,7 @@ def _message_to_large(e: RpkException):
 
 
 class LimitsTest(RedpandaTest):
-    def _rand_string(sz):
+    def _rand_string(self):
         return ''.join(
             random.choice(string.ascii_letters + string.digits)
             for _ in range(sz))

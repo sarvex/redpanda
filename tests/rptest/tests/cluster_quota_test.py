@@ -118,10 +118,12 @@ class ClusterRateQuotaTest(RedpandaTest):
         self.target_default_quota_byte_rate = 1048576
         self.target_group_quota_byte_rate = 10240
         self.message_size = 1024
-        self.break_default_quota_message_amount = int(
-            self.target_default_quota_byte_rate / self.message_size) * 11
-        self.break_group_quota_message_amount = int(
-            self.target_group_quota_byte_rate / self.message_size) * 11
+        self.break_default_quota_message_amount = (
+            self.target_default_quota_byte_rate // self.message_size * 11
+        )
+        self.break_group_quota_message_amount = (
+            self.target_group_quota_byte_rate // self.message_size * 11
+        )
         # Fetch 10 messages per one request (msg_size + headers)
         self.max_partition_fetch_bytes = self.message_size * 11
         additional_options = {

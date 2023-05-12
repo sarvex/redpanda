@@ -94,12 +94,7 @@ class OpenMessagingBenchmarkWorkers(Service):
         for line in node.account.ssh_capture(
                 f"grep -e TimeoutException {OpenMessagingBenchmarkWorkers.STDOUT_STDERR_CAPTURE} || true"
         ):
-            allowed = False
-            for a in LOG_ALLOW_LIST:
-                if a in line:
-                    allowed = True
-                    break
-
+            allowed = any(a in line for a in LOG_ALLOW_LIST)
             if not allowed:
                 bad_lines[node].append(line)
 
@@ -126,10 +121,10 @@ class OpenMessagingBenchmarkWorkers(Service):
                             allow_fail=True)
 
     def get_adresses(self):
-        nodes = ""
-        for node in self.nodes:
-            nodes += f"http://{node.account.hostname}:{OpenMessagingBenchmarkWorkers.PORT},"
-        return nodes
+        return "".join(
+            f"http://{node.account.hostname}:{OpenMessagingBenchmarkWorkers.PORT},"
+            for node in self.nodes
+        )
 
 
 # Benchmark process service
@@ -274,12 +269,7 @@ class OpenMessagingBenchmark(Service):
         for line in node.account.ssh_capture(
                 f"grep -e Exception {OpenMessagingBenchmark.STDOUT_STDERR_CAPTURE} || true"
         ):
-            allowed = False
-            for a in LOG_ALLOW_LIST:
-                if a in line:
-                    allowed = True
-                    break
-
+            allowed = any(a in line for a in LOG_ALLOW_LIST)
             if not allowed:
                 bad_lines[node].append(line)
 

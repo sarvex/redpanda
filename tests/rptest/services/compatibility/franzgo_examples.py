@@ -61,7 +61,7 @@ class FranzGoBenchProduce(FranzGoBench):
 
         if self._enable_sasl:
             creds = self._redpanda.SUPERUSER_CREDENTIALS
-            cmd = cmd + f" -sasl-user {creds[0]} -sasl-pass {creds[1]} -sasl-method {creds[2]}"
+            cmd = f"{cmd} -sasl-user {creds[0]} -sasl-pass {creds[1]} -sasl-method {creds[2]}"
 
         return os.path.join(EXAMPLE_DIR, cmd)
 
@@ -83,10 +83,10 @@ class FranzGoBenchConsume(FranzGoBench):
         cmd = f"bench -brokers {self._redpanda.brokers()} -topic {self._topic} -record-bytes 1000 -consume"
 
         if self._group:
-            cmd = cmd + f" -group {self._group}"
+            cmd = f"{cmd} -group {self._group}"
 
         if self._enable_sasl:
             creds = self._redpanda.SUPERUSER_CREDENTIALS
-            cmd = cmd + f" -sasl-user {creds[0]} -sasl-pass {creds[1]} -sasl-method {creds[2]}"
+            cmd = f"{cmd} -sasl-user {creds[0]} -sasl-pass {creds[1]} -sasl-method {creds[2]}"
 
         return os.path.join(EXAMPLE_DIR, cmd)

@@ -31,12 +31,10 @@ class ClusterHealthOverviewTest(RedpandaTest):
         self.admin = Admin(self.redpanda)
 
     def create_topics(self):
-        topics = []
-        for i in range(0, 8):
-            topics.append(
-                TopicSpec(partition_count=random.randint(1, 6),
-                          replication_factor=3))
-
+        topics = [
+            TopicSpec(partition_count=random.randint(1, 6), replication_factor=3)
+            for _ in range(0, 8)
+        ]
         self.client().create_topic(topics)
 
     def wait_until_healthy(self):
@@ -80,9 +78,7 @@ class ClusterHealthOverviewTest(RedpandaTest):
             if hov['is_healthy'] or len(hov['nodes_down']) != 2:
                 return False
 
-            if len(hov['leaderless_partitions']) == 0:
-                return False
-            return True
+            return len(hov['leaderless_partitions']) != 0
 
         wait_until(two_nodes_down, 30, 2)
 

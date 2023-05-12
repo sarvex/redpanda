@@ -49,8 +49,8 @@ class Operation():
 
 def random_string(length):
     return ''.join(
-        [random.choice(string.ascii_lowercase) for i in range(0, length)]
-    )  # Using only lower case to avoid getting "ERROR" or other string that would be perceived as an error in the log
+        [random.choice(string.ascii_lowercase) for _ in range(0, length)]
+    )
 
 
 @unique
@@ -67,9 +67,7 @@ class RedpandaAdminOperation(Enum):
 
 def _random_choice(prefix, collection):
     filtered = list(filter(lambda t: t.startswith(prefix), collection))
-    if len(filtered) == 0:
-        return None
-    return random.choice(filtered)
+    return None if not filtered else random.choice(filtered)
 
 
 def _choice_random_topic(ctx, prefix):
@@ -87,8 +85,7 @@ class CreateTopicOperation(Operation):
         self.prefix = prefix
         self.topic = f'{prefix}-{random_string(6)}'
         self.partitions = random.randint(1, max_partitions)
-        self.rf = random.choice(
-            [x for x in range(min_replication, max_replication + 1, 2)])
+        self.rf = random.choice(list(range(min_replication, max_replication + 1, 2)))
 
     def execute(self, ctx):
         ctx.redpanda.logger.info(
@@ -369,10 +366,7 @@ class CreateAclOperation(Operation):
         ctx.redpanda.logger.info(f"Validating user {self.user} ACL is present")
         acls = ctx.rpk().acl_list()
         lines = acls.splitlines()
-        for l in lines:
-            if self.user in l and "ALLOW" in l:
-                return True
-        return False
+        return any(self.user in l and "ALLOW" in l for l in lines)
 
     def describe(self):
         return {
@@ -446,7 +440,7 @@ class AdminOperationsFuzzer():
         self.min_replication = min_replication
         self.max_replication = max_replication
         if allowed_operations is None:
-            self.allowed_operations = [o for o in RedpandaAdminOperation]
+            self.allowed_operations = list(RedpandaAdminOperation)
         else:
             self.allowed_operations = allowed_operations
 
@@ -471,7 +465,7 @@ class AdminOperationsFuzzer():
 
     def create_initial_entities(self):
         # pre-populate cluster with users and topics
-        for i in range(0, self.initial_entities):
+        for _ in range(0, self.initial_entities):
             tp = CreateTopicOperation(self.prefix, 1, self.min_replication,
                                       self.max_replication)
             self.append_to_history(tp)
@@ -561,10 +555,8 @@ class AdminOperationsFuzzer():
         error = None
         for retry in range(0, self.retries):
             try:
-                if retry > 0:
-                    # it might happened that operation was already successful
-                    if op.validate(self.operation_ctx):
-                        return True
+                if retry > 0 and op.validate(self.operation_ctx):
+                    return True
                 return op.execute(self.operation_ctx)
             except Exception as e:
                 error = e
@@ -627,8 +619,8 @@ class AdminOperationsFuzzer():
                 return True
             elif self._stopping.is_set():
                 # We cannot ever reach the count, error out
-                self.redpanda.logger.error(f"wait: terminating for stop")
-                raise RuntimeError(f"Stopped without observing progress")
+                self.redpanda.logger.error("wait: terminating for stop")
+                raise RuntimeError("Stopped without observing progress")
             return False
 
         # we use 2*self.operation_timeout to give time (self.operation_timeout) for
@@ -650,7 +642,7 @@ class AdminOperationsFuzzer():
                 return True
             elif self._stopping.is_set():
                 # We cannot ever reach the count, error out
-                self.redpanda.logger.error(f"wait: terminating for stop")
+                self.redpanda.logger.error("wait: terminating for stop")
                 raise RuntimeError(
                     f"Stopped without reaching target ({self.executed}/{count})"
                 )

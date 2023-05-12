@@ -24,7 +24,7 @@ logger = logging.getLogger('rp')
 # be computed over the big endian encoding of the same data. thus to verify the
 # crc we need to rebuild part of the header in big endian before adding to crc.
 HDR_FMT_RP_PREFIX_NO_CRC = "iqbI"
-HDR_FMT_RP_PREFIX = "<I" + HDR_FMT_RP_PREFIX_NO_CRC
+HDR_FMT_RP_PREFIX = f"<I{HDR_FMT_RP_PREFIX_NO_CRC}"
 
 # below the crc redpanda and kafka have the same layout
 #   - little endian encoded
@@ -60,8 +60,8 @@ class Record:
         self.headers = headers
 
     def kv_dict(self):
-        key = None if self.key == None else self.key.hex()
-        val = None if self.value == None else self.value.hex()
+        key = None if self.key is None else self.key.hex()
+        val = None if self.value is None else self.value.hex()
         return {"k": key, "v": val}
 
 
@@ -94,20 +94,11 @@ class RecordIter:
         timestamp_delta = self.rdr.read_varint()
         offset_delta = self.rdr.read_varint()
         key_length = self.rdr.read_varint()
-        if key_length > 0:
-            key = self.rdr.read_bytes(key_length)
-        else:
-            key = None
+        key = self.rdr.read_bytes(key_length) if key_length > 0 else None
         value_length = self.rdr.read_varint()
-        if value_length > 0:
-            value = self.rdr.read_bytes(value_length)
-        else:
-            value = None
+        value = self.rdr.read_bytes(value_length) if value_length > 0 else None
         hdr_size = self.rdr.read_varint()
-        headers = []
-        for i in range(0, hdr_size):
-            headers.append(self._parse_header())
-
+        headers = [self._parse_header() for _ in range(0, hdr_size)]
         return Record(len, attrs, timestamp_delta, offset_delta, key, value,
                       headers)
 
@@ -139,8 +130,8 @@ class BatchType(Enum):
     unknown = -1
 
     @classmethod
-    def _missing_(e, value):
-        return e.unknown
+    def _missing_(cls, value):
+        return cls.unknown
 
 
 class Batch:
@@ -153,8 +144,8 @@ class Batch:
         unknown = -1
 
         @classmethod
-        def _missing_(e, value):
-            return e.unknown
+        def _missing_(cls, value):
+            return cls.unknown
 
     compression_mask = 0x7
     ts_type_mask = 0x8
@@ -169,7 +160,8 @@ class Batch:
         self.type = BatchType(header[3])
 
         header_crc_bytes = struct.pack(
-            "<" + HDR_FMT_RP_PREFIX_NO_CRC + HDR_FMT_CRC, *self.header[1:])
+            f"<{HDR_FMT_RP_PREFIX_NO_CRC}{HDR_FMT_CRC}", *self.header[1:]
+        )
         header_crc = crc32c.crc32c(header_crc_bytes)
         if self.header.header_crc != header_crc:
             raise CorruptBatchError(self)
@@ -197,7 +189,7 @@ class Batch:
 
     def _crc_header_be_bytes(self):
         # encode header back to big-endian for crc calculation
-        return struct.pack(">" + HDR_FMT_CRC, *self.header[5:])
+        return struct.pack(f">{HDR_FMT_CRC}", *self.header[5:])
 
     @staticmethod
     def from_stream(f, index):

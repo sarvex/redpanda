@@ -80,10 +80,12 @@ class RaftAvailabilityTest(RedpandaTest):
             result[0] = self._get_leader()
             return condition(result[0][0])
 
-        wait_until(check,
-                   timeout_sec=timeout,
-                   backoff_sec=0.5,
-                   err_msg=f"No leader emerged!")
+        wait_until(
+            check,
+            timeout_sec=timeout,
+            backoff_sec=0.5,
+            err_msg="No leader emerged!",
+        )
 
         duration = time.time() - t1
         self.logger.info(
@@ -129,7 +131,7 @@ class RaftAvailabilityTest(RedpandaTest):
         count = 0
         while True:
             count += 1
-            self.logger.info(f"Waiting for a leader")
+            self.logger.info("Waiting for a leader")
             leader_id = admin.await_stable_leader(topic,
                                                   partition=0,
                                                   namespace=namespace,
@@ -307,10 +309,12 @@ class RaftAvailabilityTest(RedpandaTest):
         # We have to wait for availability rather than leader state, because
         # leader state may already be reported as the expected leader from
         # stale pre-shutdown metadata.
-        wait_until(lambda: self._is_available() is True,
-                   timeout_sec=ELECTION_TIMEOUT * 2,
-                   backoff_sec=0.5,
-                   err_msg=f"Cluster did not become available!")
+        wait_until(
+            lambda: self._is_available() is True,
+            timeout_sec=ELECTION_TIMEOUT * 2,
+            backoff_sec=0.5,
+            err_msg="Cluster did not become available!",
+        )
 
         new_leader, _ = self._wait_for_leader(
             lambda l: l is not None and l != initial_leader_id,
@@ -486,7 +490,7 @@ class RaftAvailabilityTest(RedpandaTest):
             # expect messages to be produced and consumed without a timeout
             connection = self.ping_pong()
             connection.ping_pong(timeout_s=10, retries=10)
-            for i in range(0, 127):
+            for _ in range(0, 127):
                 connection.ping_pong()
 
     @cluster(num_nodes=3, log_allow_list=RESTART_LOG_ALLOW_LIST)
@@ -519,7 +523,7 @@ class RaftAvailabilityTest(RedpandaTest):
             # expect messages to be produced and consumed without a timeout
             connection = self.ping_pong()
             connection.ping_pong(timeout_s=10, retries=10)
-            for i in range(0, 127):
+            for _ in range(0, 127):
                 connection.ping_pong()
 
     @cluster(num_nodes=3)
@@ -545,7 +549,7 @@ class RaftAvailabilityTest(RedpandaTest):
         #  - Because all nodes have the same initial guess
         #  and
         #  - Because the anticipated leader should always win the first election
-        for n in range(0, 20):
+        for _ in range(0, 20):
             assert self._get_leader()[0] == leader_node_id
 
     @cluster(num_nodes=3)

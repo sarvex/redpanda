@@ -168,7 +168,7 @@ class CompactionRecoveryUpgradeTest(RedpandaTest):
         def get_closed_segment2mtime(node):
             partition = get_storage_partition(node)
 
-            seg2mtime = dict()
+            seg2mtime = {}
             for sname, seg in partition.segments.items():
                 if seg.base_index:
                     path = os.path.join(partition.path, seg.data_file)

@@ -15,9 +15,9 @@ class EchoServer(object):
     @cherrypy.expose
     def echo(self):
         body = cherrypy.request.body.read()
-        print("Body: ", str(body))
+        print("Body: ", body)
         headers = cherrypy.request.headers
-        print("Headers: ", str(headers))
+        print("Headers: ", headers)
         return json.dumps({"headers": str(headers), "body": str(body)})
 
 

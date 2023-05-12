@@ -68,32 +68,31 @@ class ControllerState:
         rpk = RpkTool(redpanda)
 
         self.features_response = admin.get_features(node=node)
-        self.features_map = dict(
-            (f['name'], f) for f in self.features_response['features'])
+        self.features_map = {f['name']: f for f in self.features_response['features']}
         self.config_response = admin.get_cluster_config(node=node)
         self.users = set(admin.list_users(node=node))
         self.acls = rpk.acl_list().strip().split('\n')
 
         self.topics = set(rpk.list_topics())
-        self.topic_configs = dict()
-        self.topic_partitions = dict()
+        self.topic_configs = {}
+        self.topic_partitions = {}
         for t in self.topics:
             self.topic_configs[t] = rpk.describe_topic_configs(topic=t)
 
             partition_fields = ['id', 'replicas']
-            partitions = list(
-                dict((k, getattr(part, k)) for k in partition_fields)
-                for part in rpk.describe_topic(topic=t, tolerant=True))
+            partitions = [
+                {k: getattr(part, k) for k in partition_fields}
+                for part in rpk.describe_topic(topic=t, tolerant=True)
+            ]
             self.topic_partitions[t] = partitions
 
         broker_fields = [
             'node_id', 'num_cores', 'rack', 'membership_status',
             'internal_rpc_status', 'internal_rpc_port'
         ]
-        self.brokers = dict()
+        self.brokers = {}
         for broker in admin.get_brokers(node=node):
-            self.brokers[broker['node_id']] = dict(
-                (k, broker.get(k)) for k in broker_fields)
+            self.brokers[broker['node_id']] = {k: broker.get(k) for k in broker_fields}
 
     def _check_features(self, other):
         for k, v in self.features_response.items():
@@ -110,8 +109,10 @@ class ControllerState:
 
     def _check_config(self, other):
         def to_set(resp):
-            return set((k, (v if not isinstance(v, list) else tuple(v)))
-                       for k, v in resp.items())
+            return {
+                (k, (v if not isinstance(v, list) else tuple(v)))
+                for k, v in resp.items()
+            }
 
         symdiff = to_set(self.config_response) ^ to_set(other.config_response)
         assert len(
@@ -173,7 +174,7 @@ class ControllerSnapshotTest(RedpandaTest):
         3. Node ids and cluster uuid remain stable
         """
 
-        seed_nodes = self.redpanda.nodes[0:3]
+        seed_nodes = self.redpanda.nodes[:3]
         joiner_node = self.redpanda.nodes[3]
         self.redpanda.set_seed_servers(seed_nodes)
 
@@ -204,7 +205,7 @@ class ControllerSnapshotTest(RedpandaTest):
                 if idx in node_ids_per_idx:
                     expected_node_id = node_ids_per_idx[idx]
                     assert expected_node_id == node_id,\
-                        f"Expected {expected_node_id} but got {node_id}"
+                            f"Expected {expected_node_id} but got {node_id}"
                 else:
                     node_ids_per_idx[idx] = node_id
 
@@ -219,7 +220,7 @@ class ControllerSnapshotTest(RedpandaTest):
 
         check_and_save_node_ids(seed_nodes)
 
-        self.logger.info(f"seed nodes restarted successfully")
+        self.logger.info("seed nodes restarted successfully")
 
         self.redpanda.start(nodes=[joiner_node],
                             auto_assign_node_id=auto_assign_node_ids,
@@ -248,7 +249,7 @@ class ControllerSnapshotTest(RedpandaTest):
         restarts.
         """
 
-        seed_nodes = self.redpanda.nodes[0:3]
+        seed_nodes = self.redpanda.nodes[:3]
         joiner = self.redpanda.nodes[3]
         self.redpanda.set_seed_servers(seed_nodes)
 
@@ -301,7 +302,7 @@ class ControllerSnapshotTest(RedpandaTest):
         assert initial_state.config_response[
             'controller_snapshot_max_age_sec'] == 10
         assert 'test_topic' in initial_state.topics
-        assert set(['admin', 'test']).issubset(initial_state.users)
+        assert {'admin', 'test'}.issubset(initial_state.users)
         assert len(initial_state.acls) >= 2
 
         # make a node join and check its state

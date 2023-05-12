@@ -88,7 +88,7 @@ class PartitionStatusValidator:
         ]
 
     def is_valid(self, status, manifest) -> bool:
-        return all([v(self, status, manifest) for v in self._validators])
+        return all(v(self, status, manifest) for v in self._validators)
 
     def _validate_status_shape(self, status, manifest) -> bool:
         expected_keys = [
@@ -97,16 +97,12 @@ class PartitionStatusValidator:
             "cloud_log_segment_count", "local_log_segment_count"
         ]
 
-        not_present = []
-        for k in expected_keys:
-            if k not in status:
-                not_present.append(k)
-
-        if len(not_present) > 0:
+        not_present = [k for k in expected_keys if k not in status]
+        if not_present:
             self._logger.info(
                 f"Expected keys missing from status: {not_present}")
 
-        return len(not_present) == 0
+        return not not_present
 
     def _validate_mode(self, status, manifest) -> bool:
         if status["cloud_storage_mode"] != "full":
@@ -310,10 +306,7 @@ class CloudStorageTimingStressTest(RedpandaTest, PartitionMovementMixin):
             )
 
             # -1 because uploaded offset is inclusive, hwm is exclusive
-            if uploaded_kafka_offset < (hwm - 1):
-                return False
-
-            return True
+            return uploaded_kafka_offset >= hwm - 1
 
     def _check_completion(self):
         producer_complete = self.producer.is_complete()
@@ -326,11 +319,10 @@ class CloudStorageTimingStressTest(RedpandaTest, PartitionMovementMixin):
         if not consumer_complete:
             return False, f"Consumer consumed only {consumed} out of {produced} messages"
 
-        uploads_done = self._all_uploads_done()
-        if not uploads_done:
+        if uploads_done := self._all_uploads_done():
+            return True, ""
+        else:
             return False, "There are pending uploads to cloud storage"
-
-        return True, ""
 
     def is_complete(self):
         complete, reason = self._check_completion()
@@ -442,7 +434,7 @@ class CloudStorageTimingStressTest(RedpandaTest, PartitionMovementMixin):
                     f"Failed checks: {failure_count}; Incomplete checks: {len(not_done)}"
                 )
 
-            self.logger.info(f"All checks completed successfuly")
+            self.logger.info("All checks completed successfuly")
 
     @cluster(num_nodes=5)
     def test_cloud_storage(self):

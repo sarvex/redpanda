@@ -34,8 +34,9 @@ class LogLevelTest(RedpandaTest):
         loggers = admin.get_loggers(node)
         # Check for some basic loggers.
         expected_loggers = ["storage", "httpd", "kafka", "io"]
-        assert all([l in loggers for l in expected_loggers
-                    ]), "Expected at least {expected_loggers}: {loggers}"
+        assert all(
+            l in loggers for l in expected_loggers
+        ), "Expected at least {expected_loggers}: {loggers}"
 
         # Any logger we get we should be able to set.
         for logger in loggers:

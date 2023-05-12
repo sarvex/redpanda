@@ -46,4 +46,4 @@ class ScramPythonLibTest(RedpandaTest):
         ])
         topics = set(client.list_topics())
         self.redpanda.logger.info(f"Topics {topics}")
-        assert set([topic.name]) == topics
+        assert {topic.name} == topics

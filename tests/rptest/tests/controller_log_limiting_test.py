@@ -84,9 +84,10 @@ class TopicOperationsLimitingTest(RedpandaTest):
     def test_create_partition_limit(self):
         requsts_amount_1 = OPERATIONS_LIMIT * 2
         self.check_available_metric(OPERATIONS_LIMIT)
-        exceed_quota_req = []
-        for i in range(requsts_amount_1):
-            exceed_quota_req.append(KclCreateTopicsRequestTopic(str(i), 1, 1))
+        exceed_quota_req = [
+            KclCreateTopicsRequestTopic(str(i), 1, 1)
+            for i in range(requsts_amount_1)
+        ]
         wait_until(lambda: self.chek_capacity_is_full(OPERATIONS_LIMIT),
                    timeout_sec=10,
                    backoff_sec=1)
@@ -112,11 +113,11 @@ class TopicOperationsLimitingTest(RedpandaTest):
 
         self.check_available_metric(OPERATIONS_LIMIT)
 
-        exceed_quota_req = []
         requests_amount_2 = OPERATIONS_LIMIT * 3
-        for i in range(OPERATIONS_LIMIT * 2, OPERATIONS_LIMIT * 5):
-            exceed_quota_req.append(KclCreateTopicsRequestTopic(str(i), 1, 1))
-
+        exceed_quota_req = [
+            KclCreateTopicsRequestTopic(str(i), 1, 1)
+            for i in range(OPERATIONS_LIMIT * 2, OPERATIONS_LIMIT * 5)
+        ]
         response = self.kcl.raw_create_topics(6, exceed_quota_req)
         response = json.loads(response)
         assert response['Version'] == 6
@@ -145,10 +146,10 @@ class TopicOperationsLimitingTest(RedpandaTest):
                    timeout_sec=10,
                    backoff_sec=1)
 
-        exceed_quota_req = []
-        for i in range(OPERATIONS_LIMIT * 2):
-            exceed_quota_req.append(KclCreateTopicsRequestTopic(str(i), 1, 1))
-
+        exceed_quota_req = [
+            KclCreateTopicsRequestTopic(str(i), 1, 1)
+            for i in range(OPERATIONS_LIMIT * 2)
+        ]
         response = self.kcl.raw_create_topics(6, exceed_quota_req)
         response = json.loads(response)
         assert response['Version'] == 6
@@ -363,9 +364,7 @@ class ControllerLogLimitMirrorMakerTests(MirrorMakerService):
                                          num_nodes=1,
                                          source_cluster=self.source_broker,
                                          target_cluster=self.redpanda)
-        topics = []
-        for i in range(0, 50):
-            topics.append(TopicSpec(partition_count=3))
+        topics = [TopicSpec(partition_count=3) for _ in range(0, 50)]
         self.source_client.create_topic(topics)
         self.mirror_maker.start()
         # start source producer & target consumer

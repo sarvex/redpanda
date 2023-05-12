@@ -39,14 +39,12 @@ TopicPartition = namedtuple('TopicPartition', ['topic', 'partition'])
 
 def annotate_missing_msgs(missing, acked, consumed, msg):
     missing_list = list(missing)
-    msg += "%s acked message did not make it to the Consumer. They are: " %\
-        len(missing_list)
+    msg += f"{len(missing_list)} acked message did not make it to the Consumer. They are: "
     if len(missing_list) < 20:
-        msg += str(missing_list) + ". "
+        msg += f"{missing_list}. "
     else:
         msg += ", ".join(str(m) for m in missing_list[:20])
-        msg += "...plus %s more. Total Acked: %s, Total Consumed: %s. " \
-            % (len(missing_list) - 20, len(set(acked)), len(set(consumed)))
+        msg += f"...plus {len(missing_list) - 20} more. Total Acked: {len(set(acked))}, Total Consumed: {len(set(consumed))}. "
     return msg
 
 
@@ -63,11 +61,7 @@ class EndToEndTest(Test):
                  extra_node_conf=None,
                  si_settings=None):
         super(EndToEndTest, self).__init__(test_context=test_context)
-        if extra_rp_conf is None:
-            self._extra_rp_conf = {}
-        else:
-            self._extra_rp_conf = extra_rp_conf
-
+        self._extra_rp_conf = {} if extra_rp_conf is None else extra_rp_conf
         self._extra_node_conf = extra_node_conf
 
         self.records_consumed = []
@@ -261,8 +255,9 @@ class EndToEndTest(Test):
         try:
             self.await_num_produced(min_records, producer_timeout_sec)
 
-            self.logger.info("Stopping producer after writing up to offsets %s" %\
-                         str(self.producer.last_acked_offsets))
+            self.logger.info(
+                f"Stopping producer after writing up to offsets {str(self.producer.last_acked_offsets)}"
+            )
             self.producer.stop()
             self.run_consumer_validation(
                 consumer_timeout_sec=consumer_timeout_sec,
@@ -282,8 +277,9 @@ class EndToEndTest(Test):
             # Related: https://github.com/redpanda-data/redpanda/issues/3450
             last_acked_offsets = self.producer.last_acked_offsets.copy()
 
-            self.logger.info("Producer's offsets after stopping: %s" %\
-                         str(last_acked_offsets))
+            self.logger.info(
+                f"Producer's offsets after stopping: {str(last_acked_offsets)}"
+            )
 
             self.await_consumed_offsets(last_acked_offsets,
                                         consumer_timeout_sec)
@@ -297,22 +293,15 @@ class EndToEndTest(Test):
 
     def validate_compacted(self):
 
-        consumer_state = {}
-
-        acked_producer_state = {}
         not_acked_producer_state = defaultdict(set)
 
-        for k, v in self.producer.acked:
-            acked_producer_state[k] = v
-
+        acked_producer_state = dict(self.producer.acked)
         # some of the not acked records may have been received and persisted,
         # we need to store all of them and check if consumer result is one of them
         for k, v in self.producer.not_acked:
             not_acked_producer_state[k].add(v)
 
-        for k, v in self.records_consumed:
-            consumer_state[k] = v
-
+        consumer_state = dict(self.records_consumed)
         msg = ""
         success = True
         errors = []
@@ -347,8 +336,8 @@ class EndToEndTest(Test):
             msg += "Invalid value detected for consumed compacted topic records. errors: ["
             for key, consumed_value, produced_acked, producer_not_acked in errors:
                 msg += f"key: {key} consumed value: {consumed_value}, " \
-                       f"produced values: (acked: {produced_acked}, " \
-                       f"not_acked: {producer_not_acked})\n"
+                           f"produced values: (acked: {produced_acked}, " \
+                           f"not_acked: {producer_not_acked})\n"
             msg += "]"
 
         return success, msg

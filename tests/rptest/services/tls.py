@@ -161,10 +161,7 @@ class TLSCertManager:
         crt = self._with_dir(f"{name}.crt")
 
         with open(cfg, "w") as f:
-            if common_name is None:
-                common_name = ""
-            else:
-                common_name = f"commonName = {common_name}"
+            common_name = "" if common_name is None else f"commonName = {common_name}"
             f.write(
                 _node_config_tmpl.format(host=host, common_name=common_name))
 

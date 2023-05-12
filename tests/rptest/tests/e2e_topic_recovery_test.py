@@ -84,7 +84,7 @@ class EndToEndTopicRecovery(RedpandaTest):
         """Stop all redpanda nodes"""
         for node in self.redpanda.nodes:
             self.logger.info(f"Node {node.account.hostname} will be stopped")
-            if not node is self._verifier_node:
+            if node is not self._verifier_node:
                 self.redpanda.stop_node(node)
         time.sleep(10)
 
@@ -92,7 +92,7 @@ class EndToEndTopicRecovery(RedpandaTest):
         """Start all redpanda nodes"""
         for node in self.redpanda.nodes:
             self.logger.info(f"Starting node {node.account.hostname}")
-            if not node is self._verifier_node:
+            if node is not self._verifier_node:
                 self.redpanda.start_node(node)
         time.sleep(10)
 
@@ -110,7 +110,7 @@ class EndToEndTopicRecovery(RedpandaTest):
             'redpanda.remote.recovery': 'true',
             #'redpanda.remote.write': 'true',
         }
-        conf.update(overrides)
+        conf |= overrides
         self.logger.info(f"Confg: {conf}")
         topic = topic_spec.name
         npart = topic_spec.partition_count
@@ -128,11 +128,11 @@ class EndToEndTopicRecovery(RedpandaTest):
                 data = self.redpanda.cloud_storage_client.get_object_data(
                     self._bucket, o.key)
                 manifest = json.loads(data)
-                last_upl_offset = manifest['last_offset']
                 if 'segments' in manifest:
                     segments = manifest['segments']
                     last_segment = segments[list(segments)[-1]]
                     last_delta_offset = last_segment['delta_offset_end']
+                    last_upl_offset = manifest['last_offset']
                     # We have one partition so this invariant holds it has to
                     # be changed when the number of partitions will get larger.
                     # This will also require different S3 check.
@@ -208,10 +208,12 @@ class EndToEndTopicRecovery(RedpandaTest):
         assert self._producer.produce_status.acked >= num_messages
 
         time.sleep(10)
-        wait_until(lambda: self._s3_has_all_data(num_messages),
-                   timeout_sec=600,
-                   backoff_sec=5,
-                   err_msg=f"Not all data is uploaded to S3 bucket")
+        wait_until(
+            lambda: self._s3_has_all_data(num_messages),
+            timeout_sec=600,
+            backoff_sec=5,
+            err_msg="Not all data is uploaded to S3 bucket",
+        )
 
         # Wipe out the state on the nodes
         self._stop_redpanda_nodes()
@@ -291,10 +293,12 @@ class EndToEndTopicRecovery(RedpandaTest):
         # Each transaction is amplified with one tx start and one tx end marker
         assert hwm == msg_count + (msg_count / per_transaction) * 2
 
-        wait_until(lambda: self._s3_has_all_data(hwm),
-                   timeout_sec=600,
-                   backoff_sec=5,
-                   err_msg=f"Not all data is uploaded to S3 bucket")
+        wait_until(
+            lambda: self._s3_has_all_data(hwm),
+            timeout_sec=600,
+            backoff_sec=5,
+            err_msg="Not all data is uploaded to S3 bucket",
+        )
 
         # Keep services alive, so that log-capturing gets their logs at the end
         consumers = []

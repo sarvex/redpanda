@@ -101,9 +101,7 @@ class FailureInjector:
                         else:
                             # The stop timers may outlive the test, handle case
                             # where they run after we already had a heal_all call.
-                            self.redpanda.logger.warn(
-                                f"Skipping failure stop action, already cleaned up?"
-                            )
+                            self.redpanda.logger.warn("Skipping failure stop action, already cleaned up?")
 
                     stop_timer = threading.Timer(function=cleanup,
                                                  args=[],
@@ -130,7 +128,7 @@ class FailureInjector:
             return self._netem_duplicate
 
     def _stop_func(self, tp):
-        if tp == FailureSpec.FAILURE_KILL or tp == FailureSpec.FAILURE_TERMINATE:
+        if tp in [FailureSpec.FAILURE_KILL, FailureSpec.FAILURE_TERMINATE]:
             return self._start
         elif tp == FailureSpec.FAILURE_SUSPEND:
             return self._continue
@@ -146,10 +144,11 @@ class FailureInjector:
                                       signal=signal.SIGKILL,
                                       idempotent=True)
         timeout_sec = 10
-        wait_until(lambda: self.redpanda.redpanda_pid(node) == None,
-                   timeout_sec=timeout_sec,
-                   err_msg="Redpanda failed to kill in %d seconds" %
-                   timeout_sec)
+        wait_until(
+            lambda: self.redpanda.redpanda_pid(node) is None,
+            timeout_sec=timeout_sec,
+            err_msg="Redpanda failed to kill in %d seconds" % timeout_sec,
+        )
 
     def _isolate(self, node):
         self.redpanda.logger.info(f"isolating node {node.account.hostname}")
@@ -179,7 +178,7 @@ class FailureInjector:
         tc_netem.tc_netem_delete(node)
 
     def _heal_all(self):
-        self.redpanda.logger.info(f"healing all network failures")
+        self.redpanda.logger.info("healing all network failures")
 
         actions = [
             lambda n: n.account.ssh("iptables -P INPUT ACCEPT"),
@@ -210,10 +209,11 @@ class FailureInjector:
             f"terminating redpanda on {node.account.hostname}")
         self.redpanda.signal_redpanda(node, signal=signal.SIGTERM)
         timeout_sec = 30
-        wait_until(lambda: self.redpanda.redpanda_pid(node) == None,
-                   timeout_sec=timeout_sec,
-                   err_msg="Redpanda failed to terminate in %d seconds" %
-                   timeout_sec)
+        wait_until(
+            lambda: self.redpanda.redpanda_pid(node) is None,
+            timeout_sec=timeout_sec,
+            err_msg="Redpanda failed to terminate in %d seconds" % timeout_sec,
+        )
 
     def _continue(self, node):
         self.redpanda.logger.info(
@@ -222,7 +222,7 @@ class FailureInjector:
 
     def _start(self, node):
         # make this idempotent
-        if self.redpanda.redpanda_pid(node) == None:
+        if self.redpanda.redpanda_pid(node) is None:
             self.redpanda.logger.info(
                 f"starting redpanda on {node.account.hostname}")
             self.redpanda.start_redpanda(node)

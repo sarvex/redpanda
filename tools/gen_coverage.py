@@ -24,9 +24,7 @@ def merge_profraw_files(profraw_files, data_profile):
     llvm_profdata_merge = [
         "llvm-profdata", "merge", "-sparse", "-o", f"{data_profile.name}"
     ]
-    for profraw in profraw_files:
-        llvm_profdata_merge.append(profraw)
-
+    llvm_profdata_merge.extend(iter(profraw_files))
     subprocess.check_call(llvm_profdata_merge)
 
 

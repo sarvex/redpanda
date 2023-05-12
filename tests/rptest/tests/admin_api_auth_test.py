@@ -205,5 +205,5 @@ class AdminApiListUsersTest(PandaProxyEndpoints):
         self.logger.debug(
             f"users: {users}\n:ephemeral_users: {ephemeral_users}\npp_hosts: {pp_hosts}"
         )
-        assert len(pp_hosts) > 0
+        assert pp_hosts
         assert len(ephemeral_users) - len(users) == len(pp_hosts)

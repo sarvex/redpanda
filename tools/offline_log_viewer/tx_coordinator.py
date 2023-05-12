@@ -55,9 +55,8 @@ class TxLog:
                     record_dict["value"]["partitions"] = []
                     record_dict["value"]["groups"] = []
                     p_size = rdr.read_int32()
-                    for i in range(p_size):
-                        partition = {}
-                        partition["ntp"] = {}
+                    for _ in range(p_size):
+                        partition = {"ntp": {}}
                         partition["ntp"]["ns"] = rdr.read_string()
                         partition["ntp"]["tp"] = {}
                         partition["ntp"]["tp"]["topic"] = rdr.read_string()
@@ -66,22 +65,15 @@ class TxLog:
                         record_dict["value"]["partitions"].append(partition)
 
                     g_size = rdr.read_int32()
-                    for i in range(g_size):
-                        group = {}
-                        group["id"] = rdr.read_string()
+                    for _ in range(g_size):
+                        group = {"id": rdr.read_string()}
                         group["etag"] = rdr.read_int64()
                         record_dict["value"]["groups"].append(group)
-                elif header["type_name"] == "raft_configuration":
-                    pass
-                elif header["type_name"] == "checkpoint":
-                    pass
-                else:
+                elif header["type_name"] not in ["raft_configuration", "checkpoint"]:
                     raise Exception(header["type_name"])
                 header["records"].append(record_dict)
                 yield header
 
     def batches(self):
         for path in self.ntp.segments:
-            s = Segment(path)
-            for batch in s:
-                yield batch
+            yield from Segment(path)

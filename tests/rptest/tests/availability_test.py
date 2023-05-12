@@ -91,8 +91,10 @@ class AvailabilityTests(EndToEndFinjectorTest):
         self.await_startup()
 
         # inject permanent random failure
-        f_spec = FailureSpec(random.choice(FailureSpec.FAILURE_TYPES),
-                             random.choice(self.redpanda.nodes[0:1]))
+        f_spec = FailureSpec(
+            random.choice(FailureSpec.FAILURE_TYPES),
+            random.choice(self.redpanda.nodes[:1]),
+        )
 
         self.inject_failure(f_spec)
 

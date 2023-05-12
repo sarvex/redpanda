@@ -61,7 +61,7 @@ class ControllerUpgradeTest(EndToEndTest):
                 if o != RedpandaAdminOperation.UPDATE_TOPIC
             ]
         else:
-            admin_operations = [o for o in RedpandaAdminOperation]
+            admin_operations = list(RedpandaAdminOperation)
 
         installer.install(self.redpanda.nodes, prev_version)
 

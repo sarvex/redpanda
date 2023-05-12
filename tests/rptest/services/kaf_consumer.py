@@ -25,18 +25,15 @@ class KafConsumer(BackgroundThreadService):
         self._num_records = num_records
         self._stopping = threading.Event()
         self.done = False
-        self.offset = dict()
+        self.offset = {}
         self._offset_for_read = offset_for_read
         self._pid = None
 
     def _worker(self, _, node):
         self._stopping.clear()
         try:
+            cmd = f'echo $$ ; kaf consume -b {self._redpanda.brokers()} {"--follow" if self._num_records is None else f"--limit-messages {self._num_records}"} --offset {self._offset_for_read} {self._topic}'
             partition = None
-            cmd = "echo $$ ; kaf consume -b %s %s --offset %s %s" % (
-                self._redpanda.brokers(), "--follow" if self._num_records is
-                None else f"--limit-messages {self._num_records}",
-                self._offset_for_read, self._topic)
             for line in node.account.ssh_capture(cmd):
                 if self._pid is None:
                     self._pid = line.strip()
@@ -44,23 +41,18 @@ class KafConsumer(BackgroundThreadService):
                 if self._stopping.is_set():
                     break
 
-                m = re.match("Partition:\s+(?P<partition>\d+)", line)
-                if m:
+                if m := re.match("Partition:\s+(?P<partition>\d+)", line):
                     assert partition is None
-                    partition = int(m.group("partition"))
+                    partition = int(m["partition"])
                     continue
 
-                m = re.match("Offset:\s+(?P<offset>\d+)", line)
-                if m:
+                if m := re.match("Offset:\s+(?P<offset>\d+)", line):
                     assert partition is not None
-                    offset = int(m.group("offset"))
+                    offset = int(m["offset"])
                     self.offset[partition] = offset
                     partition = None
         except:
-            if self._stopping.is_set():
-                # Expect a non-zero exit code when killing during teardown
-                pass
-            else:
+            if not self._stopping.is_set():
                 raise
         finally:
             self.done = True
@@ -68,7 +60,7 @@ class KafConsumer(BackgroundThreadService):
     def stop_node(self, node):
         self._stopping.set()
         if self._pid is not None:
-            self.logger.debug("Killing pid %s" % {self._pid})
+            self.logger.debug(f"Killing pid {{self._pid}}")
             node.account.signal(self._pid, 9, allow_fail=True)
         else:
             node.account.kill_process("kaf", clean_shutdown=False)

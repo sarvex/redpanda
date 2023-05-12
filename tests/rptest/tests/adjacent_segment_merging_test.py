@@ -112,12 +112,12 @@ class AdjacentSegmentMergingTest(RedpandaTest):
         wait_until(manifest_has_one_segment, 60)
 
     def _find_partition_manifests(self):
-        res = []
-        for obj in self.cloud_storage_client.list_objects(self.bucket_name):
-            if obj.key.endswith("manifest.json") and not obj.key.endswith(
-                    "topic_manifest.json"):
-                res.append(obj.key)
-        return res
+        return [
+            obj.key
+            for obj in self.cloud_storage_client.list_objects(self.bucket_name)
+            if obj.key.endswith("manifest.json")
+            and not obj.key.endswith("topic_manifest.json")
+        ]
 
     def _download_partition_manifest(self, manifest_path):
         """Find and download individual partition manifest"""

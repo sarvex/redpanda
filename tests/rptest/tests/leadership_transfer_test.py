@@ -129,7 +129,7 @@ class MultiTopicAutomaticLeadershipBalancingTest(RedpandaTest):
             for t in self.topics:
                 tps = self.redpanda.partitions(t.name)
                 total_leaders = sum(1 if t.leader else 0 for t in tps)
-                total_nodes = set(t.leader for t in tps if t.leader)
+                total_nodes = {t.leader for t in tps if t.leader}
 
                 if len(total_nodes) < nodes:
                     return False

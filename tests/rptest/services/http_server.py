@@ -58,11 +58,9 @@ class HttpServer(BackgroundThreadService):
     def pids(self, node):
         try:
             cmd = "ps ax | grep simple_http_server.py | grep -v grep | awk '{print $1}'"
-            pid_arr = [
-                pid for pid in node.account.ssh_capture(
-                    cmd, allow_fail=True, callback=int)
-            ]
-            return pid_arr
+            return list(
+                node.account.ssh_capture(cmd, allow_fail=True, callback=int)
+            )
         except (RemoteCommandError, ValueError):
             return []
 
@@ -79,9 +77,7 @@ class HttpServer(BackgroundThreadService):
             self.stop_node(node)
 
     def kill_node(self, node, clean_shutdown=True, allow_fail=False):
-        sig = signal.SIGTERM
-        if not clean_shutdown:
-            sig = signal.SIGKILL
+        sig = signal.SIGKILL if not clean_shutdown else signal.SIGTERM
         for pid in self.pids(node):
             node.account.signal(pid, sig, allow_fail)
 

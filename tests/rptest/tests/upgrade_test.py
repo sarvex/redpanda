@@ -232,13 +232,13 @@ class UpgradeBackToBackTest(PreallocNodesTest):
                     consumer.start(clean=False)
                 started = True
 
-            if current_version[0:2] == (21, 11):
+            if current_version[:2] == (21, 11):
                 # Stop the producer before the next upgrade hop: 21.11 -> 22.1 upgrades
                 # are not graceful
                 self._producer.wait()
                 assert self._producer.produce_status.acked == self.PRODUCE_COUNT
                 paused = True
-            elif current_version[0:2] == (22, 1) and paused:
+            elif current_version[:2] == (22, 1) and paused:
                 self._producer.start(clean=False)
 
         for consumer in self._consumers:
@@ -575,13 +575,13 @@ class RedpandaInstallerTest(RedpandaTest):
 
         # base step, exercise edge case of asking to install a release that is actually HEAD
         head_version, head_version_str = self.redpanda._installer.install(
-            self.redpanda.nodes,
-            version=self.redpanda._installer._head_version[0:2])
+            self.redpanda.nodes, version=self.redpanda._installer._head_version[:2]
+        )
         self.logger.info(f"base step: install(HEAD) -> {head_version_str}")
         self.redpanda.start(clean_nodes=True)
         reported_version = self.redpanda.get_version(self.redpanda.nodes[0])
         assert reported_version == head_version_str, \
-            f"installed a different version {reported_version} than advertised {head_version_str}"
+                f"installed a different version {reported_version} than advertised {head_version_str}"
 
         # loop: run down the versions and check them
         version = self.redpanda._installer.highest_from_prior_feature_version(
@@ -589,19 +589,19 @@ class RedpandaInstallerTest(RedpandaTest):
         limit = 3
         while limit > 0 and version:
             # ask to install a line and check that latest is installed
-            line = version[0:2]
+            line = version[:2]
             installed_version, installed_version_str = self.redpanda._installer.install(
                 self.redpanda.nodes, line)
             self.logger.info(f"install {installed_version_str} from {line=}")
             assert version == installed_version, \
-                f"highest feature version {version} and latest in line version {installed_version} do not match"
+                    f"highest feature version {version} and latest in line version {installed_version} do not match"
 
             self.redpanda.start(clean_nodes=True)
             reported_version = self.redpanda.get_version(
                 self.redpanda.nodes[0])
             assert reported_version == installed_version_str, \
-                f"installed a different version {reported_version} than advertised {installed_version_str}"
+                    f"installed a different version {reported_version} than advertised {installed_version_str}"
 
             version = self.redpanda._installer.highest_from_prior_feature_version(
                 version)
-            limit = limit - 1
+            limit -= 1

@@ -45,11 +45,7 @@ class KafkaStreamsTest(RedpandaTest):
     def create_example(self):
         # This will raise TypeError if Example is undefined
         example_helper = self.Example(self.redpanda, False)
-        example = ExampleRunner(self._ctx,
-                                example_helper,
-                                timeout_sec=self._timeout)
-
-        return example
+        return ExampleRunner(self._ctx, example_helper, timeout_sec=self._timeout)
 
 
 class KafkaStreamsDriverBase(KafkaStreamsTest):

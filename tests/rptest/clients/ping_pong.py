@@ -33,7 +33,7 @@ class SyncProducer:
                               callback=lambda e, m: self.on_delivery(e, m))
         self.producer.flush(timeout_s)
         msg = self.last_msg
-        if msg == None:
+        if msg is None:
             raise KafkaException(KafkaError(KafkaError._MSG_TIMED_OUT))
         if msg.error() != None:
             raise KafkaException(msg.error())
@@ -61,9 +61,7 @@ class LogReader:
 
     def stream_gen(self):
         while True:
-            msgs = self.consumer.consume(timeout=10)
-            for msg in msgs:
-                yield msg
+            yield from self.consumer.consume(timeout=10)
 
     def read_until(self, check, timeout_s):
         begin = time.time()
@@ -130,9 +128,7 @@ class PingPong:
                     raise
                 if e.args[0].code() == KafkaError._MSG_TIMED_OUT:
                     pass
-                elif e.args[0].code() == KafkaError._TIMED_OUT:
-                    pass
-                else:
+                elif e.args[0].code() != KafkaError._TIMED_OUT:
                     raise
                 random.shuffle(self.brokers)
                 bootstrap = ",".join(self.brokers)

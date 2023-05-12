@@ -49,7 +49,7 @@ class WriteWorker(threading.Thread):
         if hostname is None:
             # Pick hostname once: we will retry the same place we got an error,
             # to avoid silently skipping hosts that are persistently broken
-            nodes = [n for n in self.nodes]
+            nodes = list(self.nodes)
             random.shuffle(nodes)
             hostname = nodes[0]
 
@@ -112,9 +112,9 @@ class WriteWorker(threading.Thread):
         return self._request("GET", f"schemas/ids/{id}", headers=headers)
 
     def create(self):
+        version_id = 1
         for i in range(0, self.count):
             subject = f"subject_{self.name}_{i}"
-            version_id = 1
             schema_def = schema_template % f"{self.name}_{i}"
 
             log.debug(f"Worker {self.name} writing subject {subject}")
@@ -177,7 +177,7 @@ class WriteWorker(threading.Thread):
 
         schema_ids = self.get_schema_ids()
         if len(set(schema_ids)) != len(schema_ids):
-            self._push_err(f"Schema IDs reused!")
+            self._push_err("Schema IDs reused!")
 
     def run(self):
         try:
@@ -196,12 +196,10 @@ class WriteWorker(threading.Thread):
             raise
 
     def get_schema_ids(self):
-        result = []
-        for (subject, version), (schema_def,
-                                 schema_id) in self.results.items():
-            result.append(schema_id)
-
-        return result
+        return [
+            schema_id
+            for (subject, version), (schema_def, schema_id) in self.results.items()
+        ]
 
 
 def stress_test(node_names):
@@ -234,7 +232,7 @@ def stress_test(node_names):
 
         all_schema_ids.extend(worker.get_schema_ids())
 
-    assert sum([len(worker.errors) for worker in workers]) == 0
+    assert sum(len(worker.errors) for worker in workers) == 0
 
     # Check no schema IDs were duplicated
     assert len(all_schema_ids) == len(set(all_schema_ids))

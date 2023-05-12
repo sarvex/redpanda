@@ -46,11 +46,9 @@ class ConsumerOffsetsRecoveryToolTest(PreallocNodesTest):
         all_groups = {}
         for g in rpk.group_list():
             gd = rpk.group_describe(g)
-            all_groups[gd.name] = {}
-            for p in gd.partitions:
-                all_groups[
-                    gd.name][f"{p.topic}/{p.partition}"] = p.current_offset
-
+            all_groups[gd.name] = {
+                f"{p.topic}/{p.partition}": p.current_offset for p in gd.partitions
+            }
         return all_groups
 
     @cluster(num_nodes=4)

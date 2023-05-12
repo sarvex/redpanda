@@ -152,7 +152,7 @@ class MetricSamples:
                 assert key in sample.labels
                 return sample.labels[key] == value
 
-        return MetricSamples([s for s in filter(f, self.samples)])
+        return MetricSamples(list(filter(f, self.samples)))
 
 
 class MetricsEndpoint(Enum):
@@ -172,10 +172,7 @@ def one_or_many(value):
     Helper for reading `one_or_many_property` configs when
     we only care about getting one value out
     """
-    if isinstance(value, list):
-        return value[0]
-    else:
-        return value
+    return value[0] if isinstance(value, list) else value
 
 
 def get_cloud_storage_type(applies_only_on: list(CloudStorageType) = None,
@@ -202,13 +199,15 @@ def get_cloud_storage_type(applies_only_on: list(CloudStorageType) = None,
         applies_only_on = []
 
     cloud_provider = os.getenv("CLOUD_PROVIDER", "docker")
-    if cloud_provider == "docker":
-        if docker_use_arbitrary:
-            cloud_storage_type = [CloudStorageType.S3]
-        else:
-            cloud_storage_type = [CloudStorageType.S3, CloudStorageType.ABS]
-    elif cloud_provider in ("aws", "gcp"):
+    if (
+        cloud_provider == "docker"
+        and docker_use_arbitrary
+        or cloud_provider != "docker"
+        and cloud_provider in ("aws", "gcp")
+    ):
         cloud_storage_type = [CloudStorageType.S3]
+    elif cloud_provider == "docker":
+        cloud_storage_type = [CloudStorageType.S3, CloudStorageType.ABS]
     elif cloud_provider == "azure":
         cloud_storage_type = [CloudStorageType.ABS]
 
@@ -246,11 +245,7 @@ class ResourceSettings:
         self._num_cpus = num_cpus
         self._memory_mb = memory_mb
 
-        if bypass_fsync is None:
-            self._bypass_fsync = False
-        else:
-            self._bypass_fsync = bypass_fsync
-
+        self._bypass_fsync = False if bypass_fsync is None else bypass_fsync
         self._nfiles = nfiles
         self._reactor_stall_threshold = reactor_stall_threshold
 
@@ -687,7 +682,7 @@ class RedpandaServiceBase(Service):
         super(RedpandaServiceBase, self).__init__(context,
                                                   num_nodes=num_brokers)
         self._context = context
-        self._extra_rp_conf = extra_rp_conf or dict()
+        self._extra_rp_conf = extra_rp_conf or {}
 
         if si_settings is not None:
             self.set_si_settings(si_settings)
@@ -987,7 +982,7 @@ class RedpandaService(RedpandaServiceBase):
 
         self._extra_node_conf = {}
         for node in self.nodes:
-            self._extra_node_conf[node] = extra_node_conf or dict()
+            self._extra_node_conf[node] = extra_node_conf or {}
 
         if log_config is not None:
             self._log_config = log_config
@@ -1007,7 +1002,7 @@ class RedpandaService(RedpandaServiceBase):
                             auth=(self._superuser.username,
                                   self._superuser.password))
         self._started = []
-        self._security_config = dict()
+        self._security_config = {}
 
         self._raise_on_errors = self._context.globals.get(
             self.RAISE_ON_ERRORS_KEY, True)
@@ -1113,14 +1108,13 @@ class RedpandaService(RedpandaServiceBase):
 
     def get_node_memory_mb(self):
         if self._resource_settings.memory_mb is not None:
-            self.logger.info(f"get_node_memory_mb: got from ResourceSettings")
+            self.logger.info("get_node_memory_mb: got from ResourceSettings")
             return self._resource_settings.memory_mb
         elif self._dedicated_nodes is False:
-            self.logger.info(
-                f"get_node_memory_mb: using ResourceSettings default")
+            self.logger.info("get_node_memory_mb: using ResourceSettings default")
             return self._resource_settings.DEFAULT_MEMORY_MB
         else:
-            self.logger.info(f"get_node_memory_mb: fetching from node")
+            self.logger.info("get_node_memory_mb: fetching from node")
             # Assume nodes are symmetric, so we can just ask one
             # how much memory it has.
             node = self.nodes[0]
@@ -1131,14 +1125,13 @@ class RedpandaService(RedpandaServiceBase):
 
     def get_node_cpu_count(self):
         if self._resource_settings.num_cpus is not None:
-            self.logger.info(f"get_node_cpu_count: got from ResourceSettings")
+            self.logger.info("get_node_cpu_count: got from ResourceSettings")
             return self._resource_settings.num_cpus
         elif self._dedicated_nodes is False:
-            self.logger.info(
-                f"get_node_cpu_count: using ResourceSettings default")
+            self.logger.info("get_node_cpu_count: using ResourceSettings default")
             return self._resource_settings.DEFAULT_NUM_CPUS
         else:
-            self.logger.info(f"get_node_cpu_count: fetching from node")
+            self.logger.info("get_node_cpu_count: fetching from node")
 
             # Assume nodes are symmetric, so we can just ask one
             node = self.nodes[0]
@@ -1165,7 +1158,7 @@ class RedpandaService(RedpandaServiceBase):
             # be the truth (e.g. in CI they get indepdendent XFS
             # filesystems), but it's the safe assumption on e.g.
             # a workstation.
-            avail_kb = int(avail_kb / len(self.nodes))
+            avail_kb //= len(self.nodes)
 
         return avail_kb * 1024
 
@@ -1248,9 +1241,9 @@ class RedpandaService(RedpandaServiceBase):
 
         def setup_node_dns(node):
             tmpfile = f"/tmp/{node.name}_hosts"
-            node.account.copy_from(f"/etc/hosts", tmpfile)
+            node.account.copy_from("/etc/hosts", tmpfile)
             update_hosts_file(node.name, tmpfile)
-            node.account.copy_to(tmpfile, f"/etc/hosts")
+            node.account.copy_to(tmpfile, "/etc/hosts")
 
         # Edit /etc/hosts on Redpanda nodes
         self._for_nodes(self.nodes, setup_node_dns, parallel=True)
@@ -1278,7 +1271,7 @@ class RedpandaService(RedpandaServiceBase):
         """
         to_start = nodes if nodes is not None else self.nodes
         assert all((node in self.nodes for node in to_start))
-        self.logger.info("%s: starting service" % self.who_am_i())
+        self.logger.info(f"{self.who_am_i()}: starting service")
 
         first_start = self._start_time < 0
         if first_start:
@@ -1304,8 +1297,7 @@ class RedpandaService(RedpandaServiceBase):
                     # when we started the installer.
                     self.clean_node(node, preserve_current_install=True)
                 else:
-                    self.logger.debug("%s: skip cleaning node" %
-                                      self.who_am_i(node))
+                    self.logger.debug(f"{self.who_am_i(node)}: skip cleaning node")
             except Exception:
                 self.logger.exception(
                     f"Error cleaning node {node.account.hostname}:")
@@ -1320,7 +1312,7 @@ class RedpandaService(RedpandaServiceBase):
         def start_one(node):
             node_overrides = node_config_overrides[
                 node] if node in node_config_overrides else {}
-            self.logger.debug("%s: starting node" % self.who_am_i(node))
+            self.logger.debug(f"{self.who_am_i(node)}: starting node")
             self.start_node(node,
                             first_start=first_start,
                             expect_fail=expect_fail,
@@ -1631,11 +1623,10 @@ class RedpandaService(RedpandaServiceBase):
 
             if expect_fail:
                 wait_until(
-                    lambda: self.redpanda_pid(node) == None,
+                    lambda: self.redpanda_pid(node) is None,
                     timeout_sec=10,
                     backoff_sec=0.2,
-                    err_msg=
-                    f"Redpanda processes did not terminate on {node.name} during startup as expected"
+                    err_msg=f"Redpanda processes did not terminate on {node.name} during startup as expected",
                 )
             elif not skip_readiness_check:
                 wait_until(
@@ -1646,7 +1637,7 @@ class RedpandaService(RedpandaServiceBase):
                     f"Redpanda service {node.account.hostname} failed to start within {timeout} sec",
                     retry_on_exc=True)
 
-        self.logger.debug(f"Node status prior to redpanda startup:")
+        self.logger.debug("Node status prior to redpanda startup:")
         self.start_service(node, start_rp)
         if not expect_fail:
             self._started.append(node)
@@ -1668,7 +1659,7 @@ class RedpandaService(RedpandaServiceBase):
         if clean_node:
             self.clean_node(node, preserve_current_install=True)
         else:
-            self.logger.debug("%s: skip cleaning node" % self.who_am_i(node))
+            self.logger.debug(f"{self.who_am_i(node)}: skip cleaning node")
         node.account.mkdirs(RedpandaService.DATA_DIR)
         node.account.mkdirs(os.path.dirname(RedpandaService.NODE_CONFIG_FILE))
 
@@ -1688,7 +1679,7 @@ class RedpandaService(RedpandaServiceBase):
                 f"Redpanda service {node.account.hostname} failed to start within 60 sec using rpk",
                 retry_on_exc=True)
 
-        self.logger.debug(f"Node status prior to redpanda startup:")
+        self.logger.debug("Node status prior to redpanda startup:")
         self.start_service(node, start_rp)
         self._started.append(node)
 
@@ -1800,7 +1791,7 @@ class RedpandaService(RedpandaServiceBase):
         def is_ready():
             status = admin_client.get_cluster_config_status(
                 node=self.controller())
-            ready = all([n['config_version'] >= new_version for n in status])
+            ready = all(n['config_version'] >= new_version for n in status)
 
             return ready, status
 
@@ -1815,17 +1806,18 @@ class RedpandaService(RedpandaServiceBase):
         )
 
         any_restarts = any(n['restart'] for n in config_status)
-        if any_restarts and expect_restart:
-            self.restart_nodes(self.nodes)
-            # Having disrupted the cluster with a restart, wait for the controller
-            # to be available again before returning to the caller, so that they do
-            # not have to worry about subsequent configuration actions failing.
-            self._admin.await_stable_leader(namespace="redpanda",
-                                            topic="controller",
-                                            partition=0)
-        elif any_restarts:
-            raise AssertionError(
-                "Nodes report restart required but expect_restart is False")
+        if any_restarts:
+            if expect_restart:
+                self.restart_nodes(self.nodes)
+                # Having disrupted the cluster with a restart, wait for the controller
+                # to be available again before returning to the caller, so that they do
+                # not have to worry about subsequent configuration actions failing.
+                self._admin.await_stable_leader(namespace="redpanda",
+                                                topic="controller",
+                                                partition=0)
+            else:
+                raise AssertionError(
+                    "Nodes report restart required but expect_restart is False")
 
     def await_feature_active(self, feature_name: str, *, timeout_sec: int):
         """
@@ -1835,7 +1827,7 @@ class RedpandaService(RedpandaServiceBase):
         def is_active():
             for n in self.nodes:
                 f = self._admin.get_features(node=n)
-                by_name = dict((f['name'], f) for f in f['features'])
+                by_name = {f['name']: f for f in f['features']}
                 try:
                     state = by_name[feature_name]['state']
                 except KeyError:
@@ -1889,11 +1881,11 @@ class RedpandaService(RedpandaServiceBase):
         if not crashes:
             # Even if there is no assertion or segfault, look for unexpectedly
             # not-running processes
-            for node in self._started:
-                if not self.redpanda_pid(node):
-                    crashes.append(
-                        (node, "Redpanda process unexpectedly stopped"))
-
+            crashes.extend(
+                (node, "Redpanda process unexpectedly stopped")
+                for node in self._started
+                if not self.redpanda_pid(node)
+            )
         if crashes:
             raise NodeCrash(crashes)
 
@@ -2028,7 +2020,7 @@ class RedpandaService(RedpandaServiceBase):
                         m = re.match(
                             "SUMMARY: AddressSanitizer: (\d+) byte\(s\) leaked in (\d+) allocation\(s\).",
                             summary_line.strip())
-                        if m and int(m.group(1)) < 1024:
+                        if m and int(m[1]) < 1024:
                             self.logger.warn(
                                 f"Ignoring memory leak, small quantity: {summary_line}"
                             )
@@ -2113,15 +2105,16 @@ class RedpandaService(RedpandaServiceBase):
         Override default stop() to execude stop_node in parallel
         """
         self._stop_time = time.time()  # The last time stop is invoked
-        self.logger.info("%s: exporting cluster config" % self.who_am_i())
+        self.logger.info(f"{self.who_am_i()}: exporting cluster config")
 
         service_dir = os.path.join(
             TestContext.results_dir(self._context, self._context.test_index),
             self.service_id)
         cluster_config_filename = os.path.join(service_dir,
                                                "cluster_config.yaml")
-        self.logger.debug("%s: cluster_config_filename %s" %
-                          (self.who_am_i(), cluster_config_filename))
+        self.logger.debug(
+            f"{self.who_am_i()}: cluster_config_filename {cluster_config_filename}"
+        )
 
         if not os.path.isdir(service_dir):
             mkdir_p(service_dir)
@@ -2134,7 +2127,7 @@ class RedpandaService(RedpandaServiceBase):
             # will not be able to get it from the admin API
             self.logger.info(f"{self.who_am_i()}: error getting config: {e}")
 
-        self.logger.info("%s: stopping service" % self.who_am_i())
+        self.logger.info(f"{self.who_am_i()}: stopping service")
 
         self._for_nodes(self.nodes,
                         lambda n: self.stop_node(n, **kwargs),
@@ -2171,10 +2164,9 @@ class RedpandaService(RedpandaServiceBase):
 
         try:
             wait_until(
-                lambda: self.redpanda_pid(node) == None,
+                lambda: self.redpanda_pid(node) is None,
                 timeout_sec=timeout,
-                err_msg=
-                f"Redpanda node {node.account.hostname} failed to stop in {timeout} seconds"
+                err_msg=f"Redpanda node {node.account.hostname} failed to stop in {timeout} seconds",
             )
         except TimeoutError:
             sleep_sec = 10
@@ -2212,14 +2204,14 @@ class RedpandaService(RedpandaServiceBase):
         node.account.kill_process("redpanda",
                                   clean_shutdown=False,
                                   allow_fail=True)
-        if node.account.exists(RedpandaService.PERSISTENT_ROOT):
-            if node.account.sftp_client.listdir(
-                    RedpandaService.PERSISTENT_ROOT):
-                if not preserve_logs:
-                    node.account.remove(f"{RedpandaService.PERSISTENT_ROOT}/*")
-                else:
-                    node.account.remove(
-                        f"{RedpandaService.PERSISTENT_ROOT}/data/*")
+        if node.account.exists(
+            RedpandaService.PERSISTENT_ROOT
+        ) and node.account.sftp_client.listdir(RedpandaService.PERSISTENT_ROOT):
+            if not preserve_logs:
+                node.account.remove(f"{RedpandaService.PERSISTENT_ROOT}/*")
+            else:
+                node.account.remove(
+                    f"{RedpandaService.PERSISTENT_ROOT}/data/*")
         if node.account.exists(RedpandaService.NODE_CONFIG_FILE):
             node.account.remove(f"{RedpandaService.NODE_CONFIG_FILE}")
         if node.account.exists(RedpandaService.CLUSTER_BOOTSTRAP_CONFIG_FILE):
@@ -2275,9 +2267,11 @@ class RedpandaService(RedpandaServiceBase):
         ip = socket.gethostbyname(node.account.hostname)
         hostname = node.account.ssh_output(cmd=f"dig -x {ip} +short").decode(
             'utf-8').split('\n')[0].removesuffix(".")
-        fqdn = node.account.ssh_output(
-            cmd=f"host {hostname}").decode('utf-8').split(' ')[0]
-        return fqdn
+        return (
+            node.account.ssh_output(cmd=f"host {hostname}")
+            .decode('utf-8')
+            .split(' ')[0]
+        )
 
     def write_node_conf_file(self,
                              node,
@@ -2291,11 +2285,8 @@ class RedpandaService(RedpandaServiceBase):
         """
         node_info = {self.idx(n): n for n in self.nodes}
 
-        include_seed_servers = True
         node_id = self.idx(node)
-        if omit_seeds_on_idx_one and node_id == 1:
-            include_seed_servers = False
-
+        include_seed_servers = not omit_seeds_on_idx_one or node_id != 1
         if auto_assign_node_id:
             # Supply None so it's omitted from the config.
             node_id = None
@@ -2347,8 +2338,8 @@ class RedpandaService(RedpandaServiceBase):
                 f"extra_node_conf[{node.name}]: {self._extra_node_conf[node]}")
             if override_cfg_params:
                 self.logger.debug(
-                    "Setting custom node configuration options: {}".format(
-                        override_cfg_params))
+                    f"Setting custom node configuration options: {override_cfg_params}"
+                )
                 doc["redpanda"].update(override_cfg_params)
             conf = yaml.dump(doc)
 
@@ -2367,8 +2358,9 @@ class RedpandaService(RedpandaServiceBase):
             doc["redpanda"].update(dict(kafka_api_tls=tls_config))
             conf = yaml.dump(doc)
 
-        self.logger.info("Writing Redpanda node config file: {}".format(
-            RedpandaService.NODE_CONFIG_FILE))
+        self.logger.info(
+            f"Writing Redpanda node config file: {RedpandaService.NODE_CONFIG_FILE}"
+        )
         self.logger.debug(conf)
         node.account.create_file(RedpandaService.NODE_CONFIG_FILE, conf)
 
@@ -2385,8 +2377,8 @@ class RedpandaService(RedpandaServiceBase):
 
         if self._extra_rp_conf:
             self.logger.debug(
-                "Setting custom cluster configuration options: {}".format(
-                    self._extra_rp_conf))
+                f"Setting custom cluster configuration options: {self._extra_rp_conf}"
+            )
             conf.update(self._extra_rp_conf)
 
         if cur_ver != RedpandaInstaller.HEAD and cur_ver < (22, 2, 1):
@@ -2413,8 +2405,8 @@ class RedpandaService(RedpandaServiceBase):
         conf_yaml = yaml.dump(conf)
         for node in self.nodes:
             self.logger.info(
-                "Writing bootstrap cluster config file {}:{}".format(
-                    node.name, RedpandaService.CLUSTER_BOOTSTRAP_CONFIG_FILE))
+                f"Writing bootstrap cluster config file {node.name}:{RedpandaService.CLUSTER_BOOTSTRAP_CONFIG_FILE}"
+            )
             node.account.mkdirs(
                 os.path.dirname(RedpandaService.CLUSTER_BOOTSTRAP_CONFIG_FILE))
             node.account.create_file(
@@ -2424,11 +2416,7 @@ class RedpandaService(RedpandaServiceBase):
         """
         Returns a node that has requested id or None if node is not found
         """
-        for n in self.nodes:
-            if self.node_id(n) == node_id:
-                return n
-
-        return None
+        return next((n for n in self.nodes if self.node_id(n) == node_id), None)
 
     def registered(self, node):
         """
@@ -2458,18 +2446,9 @@ class RedpandaService(RedpandaServiceBase):
                     f"registered: peer {peer.name} admin API not yet available ({e})"
                 )
                 return False
-            found = None
-            for b in admin_brokers:
-                if b['node_id'] == node_id:
-                    found = b
-                    break
-
-            if not found:
-                self.logger.info(
-                    f"registered: node {node.name} not yet found in peer {peer.name}'s broker list ({admin_brokers})"
-                )
-                return False
-            else:
+            if found := next(
+                (b for b in admin_brokers if b['node_id'] == node_id), None
+            ):
                 if not found['is_alive']:
                     self.logger.info(
                         f"registered: node {node.name} found in {peer.name}'s broker list ({admin_brokers}) but not yet marked as alive"
@@ -2479,6 +2458,11 @@ class RedpandaService(RedpandaServiceBase):
                     f"registered: node {node.name} now visible in peer {peer.name}'s broker list ({admin_brokers})"
                 )
 
+            else:
+                self.logger.info(
+                    f"registered: node {node.name} not yet found in peer {peer.name}'s broker list ({admin_brokers})"
+                )
+                return False
         if self.brokers():  # Conditional in case Kafka API turned off
             auth_args = {}
             if self.sasl_enabled():
@@ -2519,10 +2503,9 @@ class RedpandaService(RedpandaServiceBase):
 
             if r.status_code != 200:
                 continue
-            else:
-                resp_leader_id = r.json()['leader_id']
-                if resp_leader_id != -1:
-                    return self.get_node(resp_leader_id)
+            resp_leader_id = r.json()['leader_id']
+            if resp_leader_id != -1:
+                return self.get_node(resp_leader_id)
 
         return None
 
@@ -2643,16 +2626,15 @@ class RedpandaService(RedpandaServiceBase):
         assert node in self.nodes, f"where node is {node.name}"
         assert node in self._started
         cfg = self._node_configs[node]
-        if cfg['redpanda']['kafka_api']:
-            if isinstance(cfg['redpanda']['kafka_api'], list):
-                for entry in cfg['redpanda']['kafka_api']:
-                    if entry['name'] == listener:
-                        return f'{entry["address"]}:{entry["port"]}'
-            else:
-                entry = cfg["redpanda"]["kafka_api"]
-                return f'{entry["address"]}:{entry["port"]}'
-        else:
+        if not cfg['redpanda']['kafka_api']:
             return None
+        if isinstance(cfg['redpanda']['kafka_api'], list):
+            for entry in cfg['redpanda']['kafka_api']:
+                if entry['name'] == listener:
+                    return f'{entry["address"]}:{entry["port"]}'
+        else:
+            entry = cfg["redpanda"]["kafka_api"]
+            return f'{entry["address"]}:{entry["port"]}'
 
     def admin_endpoint(self, node):
         assert node in self.nodes, f"where node is {node.name}"
@@ -2740,10 +2722,7 @@ class RedpandaService(RedpandaServiceBase):
             sample_values += self._extract_samples(metrics, sample_pattern,
                                                    node)
 
-        if not sample_values:
-            return None
-        else:
-            return MetricSamples(sample_values)
+        return None if not sample_values else MetricSamples(sample_values)
 
     def metrics_samples(
         self,
@@ -2797,9 +2776,8 @@ class RedpandaService(RedpandaServiceBase):
         NOTE: this is not thread-safe.
         """
         idx = self.idx(node)
-        if not force_refresh:
-            if idx in self._node_id_by_idx:
-                return self._node_id_by_idx[idx]
+        if not force_refresh and idx in self._node_id_by_idx:
+            return self._node_id_by_idx[idx]
 
         def _try_get_node_id():
             try:
@@ -2851,12 +2829,7 @@ class RedpandaService(RedpandaServiceBase):
         if nodes is None:
             nodes = self.nodes
 
-        for node in nodes:
-            if self.search_log_node(node, pattern):
-                return True
-
-        # Fall through, no matches
-        return False
+        return any(self.search_log_node(node, pattern) for node in nodes)
 
     def search_log_all(self, pattern: str, nodes: list[ClusterNode] = None):
         # Test helper for grepping the redpanda log
@@ -3031,11 +3004,12 @@ class RedpandaService(RedpandaServiceBase):
         any_anomalies = any(len(v) for v in report.values())
 
         # List of fatal anomalies found
-        fatal_anomalies = set(k for k, v in report.items()
-                              if len(v) and k not in permitted_anomalies)
+        fatal_anomalies = {
+            k for k, v in report.items() if len(v) and k not in permitted_anomalies
+        }
 
         if not any_anomalies:
-            self.logger.info(f"No anomalies in object storage scrub")
+            self.logger.info("No anomalies in object storage scrub")
         elif not fatal_anomalies:
             self.logger.warn(
                 f"Non-fatal anomalies in remote storage: {json.dumps(report, indent=2)}"

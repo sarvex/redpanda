@@ -96,11 +96,7 @@ def render_local_kadmin_command(command):
 
 
 def render_add_principal_command(principal: str, password: str = None):
-    if password is None:
-        keytype = '-randkey'
-    else:
-        keytype = f'-pw {password}'
-
+    keytype = '-randkey' if password is None else f'-pw {password}'
     return ADD_PRINCIPAL_TMPL.format(keytype=keytype, principal=principal)
 
 
@@ -174,8 +170,7 @@ class KrbKdc(Service):
         node.account.ssh(f"rm -fr {KDC_DB_PATH}*", allow_fail=True)
 
     def start_cmd(self):
-        cmd = f"krb5kdc -P {KRB5KDC_PID_PATH} && kadmind -P {KADMIND_PID_PATH}"
-        return cmd
+        return f"krb5kdc -P {KRB5KDC_PID_PATH} && kadmind -P {KADMIND_PID_PATH}"
 
     def _init_realm(self, node):
         self._hard_delete_principals(node)
@@ -275,7 +270,7 @@ EOF
 
     def _configure_principal(self, krb5_conf_path: str, principal: str,
                              dest: str, dest_node):
-        if not "@" in principal:
+        if "@" not in principal:
             principal = f"{principal}@{self.realm}"
         self.logger.info(f"Adding principal {principal} to KDC")
         cmd = render_remote_kadmin_command(
@@ -380,7 +375,7 @@ class KrbClient(Service):
         node.account.ssh(
             f"rm -fr {self.redpanda.PERSISTENT_ROOT}/client.keytab /etc/krb5.keytab",
             allow_fail=True)
-        node.account.ssh(f"rm -fr /tmp/*.krb5ccache", allow_fail=True)
+        node.account.ssh("rm -fr /tmp/*.krb5ccache", allow_fail=True)
 
     def add_primary(self, primary: str):
         self.logger.info(
@@ -557,7 +552,7 @@ class ActiveDirectoryKdc:
     def _configure_principal(self, krb5_conf_path: str, user: str,
                              principal: str, password: str, dest: str,
                              dest_node):
-        if not "@" in principal:
+        if "@" not in principal:
             principal = f"{principal}@{self.realm}"
         src = fr"{user}.keytab.temp"
         cmd = f"ktpass -out {src} -mapuser {user} -princ {principal} -crypto ALL -pass * -ptype KRB5_NT_PRINCIPAL +DumpSalt"

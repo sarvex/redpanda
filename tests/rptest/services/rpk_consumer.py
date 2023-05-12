@@ -45,7 +45,7 @@ class RpkConsumer(BackgroundThreadService):
         self.message_count = 0
         self.messages = []
         self.error = None
-        self.offset = dict()
+        self.offset = {}
         self._save_msgs = save_msgs
         self._fetch_max_bytes = fetch_max_bytes
         self._num_msgs = num_msgs
@@ -66,7 +66,7 @@ class RpkConsumer(BackgroundThreadService):
 
                 err = e
                 self._redpanda.logger.error(
-                    f"Consumer failed with error: '{e}'. Retrying in {self._retry_sec} seconds."
+                    f"Consumer failed with error: '{err}'. Retrying in {self._retry_sec} seconds."
                 )
                 attempt += 1
                 self._stopping.wait(self._retry_sec)
@@ -85,9 +85,7 @@ class RpkConsumer(BackgroundThreadService):
         try:
             node.account.kill_process('rpk', clean_shutdown=False)
         except RemoteCommandError as e:
-            if b"No such process" in e.msg:
-                pass
-            else:
+            if b"No such process" not in e.msg:
                 raise
 
     def _consume(self, node):
@@ -99,12 +97,7 @@ class RpkConsumer(BackgroundThreadService):
         rpk_binary = f"{rp_install_path_root}/bin/rpk"
         # Important to use --read-committed, because otherwise the output parsing would have
         # to somehow handle when rpk errors out on a rewind of the consumed offset
-        cmd = '%s topic consume --read-committed --offset %s --pretty-print=false --brokers %s %s' % (
-            rpk_binary,
-            self._offset,
-            self._redpanda.brokers(),
-            self._topic,
-        )
+        cmd = f'{rpk_binary} topic consume --read-committed --offset {self._offset} --pretty-print=false --brokers {self._redpanda.brokers()} {self._topic}'
 
         if not self._save_msgs:
             # Just output two bytes per messages, so that we can count them, rather
@@ -112,10 +105,10 @@ class RpkConsumer(BackgroundThreadService):
             cmd += f' -f "{MSG_TOKEN}\\n"'
 
         if self._group:
-            cmd += ' -g %s' % self._group
+            cmd += f' -g {self._group}'
 
         if self._partitions:
-            cmd += ' -p %s' % ','.join([str(p) for p in self._partitions])
+            cmd += f" -p {','.join([str(p) for p in self._partitions])}"
 
         if self._fetch_max_bytes is not None:
             cmd += f' --fetch-max-bytes={self._fetch_max_bytes}'
@@ -134,9 +127,8 @@ class RpkConsumer(BackgroundThreadService):
             if self._save_msgs:
                 msg = json.loads(l)
                 self.messages.append(msg)
-            else:
-                if l.strip() != MSG_TOKEN:
-                    raise RuntimeError(f"Unexpected output line: '{l}'")
+            elif l.strip() != MSG_TOKEN:
+                raise RuntimeError(f"Unexpected output line: '{l}'")
 
             self.message_count += 1
 

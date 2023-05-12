@@ -62,11 +62,7 @@ class CloudRetentionTest(PreallocNodesTest):
             msg_count = int(1024 * 1024 * 1024 / msg_size)
             segment_size = 1024 * 1024
 
-        if max_consume_rate_mb is None:
-            max_read_msgs = 25000
-        else:
-            max_read_msgs = 2000
-
+        max_read_msgs = 25000 if max_consume_rate_mb is None else 2000
         si_settings = SISettings(self.test_context,
                                  log_segment_size=segment_size,
                                  fast_uploads=True)
@@ -167,7 +163,7 @@ class CloudRetentionTest(PreallocNodesTest):
                 # check that for each partition there is more than 1
                 # and less than 10 segments in the cloud (generous limits)
                 return size >= segment_size * num_partitions \
-                    and size <= 10 * segment_size * num_partitions
+                        and size <= 10 * segment_size * num_partitions
             except Exception as e:
                 self.logger.warn(f"error getting bucket size: {e}")
                 return False
@@ -186,7 +182,7 @@ class CloudRetentionTest(PreallocNodesTest):
         consumer.wait()
         self.logger.info("finished consuming")
         assert consumer.consumer_status.validator.valid_reads > \
-            segment_size * num_partitions / msg_size
+                segment_size * num_partitions / msg_size
 
     @cluster(num_nodes=4)
     @skip_debug_mode
@@ -271,7 +267,7 @@ class CloudRetentionTest(PreallocNodesTest):
                         f"Partition {partition} doesn't have last_offset")
                     return False
 
-                if not "segments" not in manifest:
+                if "segments" in manifest:
                     self.logger.info(
                         f"Partition {partition} still has segments")
                     return False
@@ -339,7 +335,7 @@ class CloudRetentionTimelyGCTest(RedpandaTest):
         def cloud_log_size() -> int:
             s3_snapshot = BucketView(self.redpanda, topics=self.topics)
             if not s3_snapshot.is_ntp_in_manifest(self.topic, 0):
-                self.logger.debug(f"No manifest present yet")
+                self.logger.debug("No manifest present yet")
                 return 0
 
             cloud_log_size = s3_snapshot.cloud_log_size_for_ntp(self.topic, 0)

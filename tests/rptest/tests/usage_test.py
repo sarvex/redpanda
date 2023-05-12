@@ -119,10 +119,9 @@ class UsageTest(RedpandaTest):
         # but not a large amount
         total_data = self._calculate_total_usage()
 
-        iterations = 1
         prev_usage = self._get_all_usage()
         producer = KafkaCliTools(self.redpanda)
-        while iterations < 37:
+        for iterations in range(1, 37):
             producer.produce(self.topic, (512 * iterations), 512, acks=1)
             time.sleep(1)
 
@@ -130,10 +129,7 @@ class UsageTest(RedpandaTest):
 
             # 3 node cluster * 30 max windows == 90 windows total
             assert len(usage) <= 90, f"iterations: {iterations}"
-            if len(usage) == len(prev_usage):
-                # Theres been no new window closed
-                pass
-            else:
+            if len(usage) != len(prev_usage):
                 # Assert that more then data the data produced has been recorded, responses
                 # and the initial non 0 recorded data are also included in the total recorded amt
                 total_data = self._calculate_total_usage(usage)
@@ -141,7 +137,6 @@ class UsageTest(RedpandaTest):
                 assert total_data > total_prev, f"Expected {total_data} > {total_prev} itr: {iterations}"
 
             prev_usage = usage
-            iterations += 1
 
     @cluster(num_nodes=4)
     def test_usage_collection_restart(self):
@@ -194,7 +189,7 @@ class UsageTest(RedpandaTest):
             begin = datetime.fromtimestamp(r['begin_timestamp'])
             end = datetime.fromtimestamp(r['end_timestamp'])
             total = end - begin
-            assert total.seconds == 2 or total.seconds == 3, total.seconds
+            assert total.seconds in [2, 3], total.seconds
 
 
 class UsageTestCloudStorageMetrics(RedpandaTest):
@@ -272,9 +267,11 @@ class UsageTestCloudStorageMetrics(RedpandaTest):
         for p in producers:
             p.start()
 
-        wait_until(lambda: all([p.is_complete() for p in producers]),
-                   timeout_sec=30,
-                   backoff_sec=1)
+        wait_until(
+            lambda: all(p.is_complete() for p in producers),
+            timeout_sec=30,
+            backoff_sec=1,
+        )
         for p in producers:
             p.wait()
 

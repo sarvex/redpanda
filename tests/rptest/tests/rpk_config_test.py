@@ -174,11 +174,11 @@ tune_disk_irq: true
 
     @cluster(num_nodes=3, log_allow_list=RESTART_LOG_ALLOW_LIST)
     def test_config_change_then_restart_node(self):
+        key = 'redpanda.admin.port'
+        value = '9641'  # The default is 9644, so we will change it
+
         for node in self.redpanda.nodes:
             rpk = RpkRemoteTool(self.redpanda, node)
-            key = 'redpanda.admin.port'
-            value = '9641'  # The default is 9644, so we will change it
-
             rpk.config_set(key, value)
 
             self.redpanda.restart_nodes(node)

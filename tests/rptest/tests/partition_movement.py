@@ -30,7 +30,7 @@ class PartitionMovementMixin():
         limitation in redpanda raft implementation.
         """
         replication_factor = len(assignments)
-        node_ids = lambda x: set([a["node_id"] for a in x])
+        node_ids = lambda x: {a["node_id"] for a in x}
 
         assert replication_factor >= 1
         assert len(node_ids(assignments)) == replication_factor
@@ -200,9 +200,7 @@ class PartitionMovementMixin():
         if x_core_only:
             selected = copy.deepcopy(assignments)
             brokers = admin.get_brokers()
-            broker_cores = {}
-            for b in brokers:
-                broker_cores[b['node_id']] = b["num_cores"]
+            broker_cores = {b['node_id']: b["num_cores"] for b in brokers}
             for a in assignments:
                 a['core'] = random.randint(0, broker_cores[a['node_id']] - 1)
             return selected, assignments

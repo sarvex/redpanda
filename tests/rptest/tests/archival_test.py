@@ -69,13 +69,12 @@ def validate(fn, logger, timeout_sec, backoff_sec=5):
         except AssertionError:
             time.sleep(backoff_sec)
             current = time.monotonic()
-            if current < deadline:
-                e, v = sys.exc_info()[:2]
-                stacktrace = traceback.format_exc()
-                logger.debug(
-                    f"Validation attempt failed: {e} {v} {stacktrace}")
-            else:
+            if current >= deadline:
                 raise
+            e, v = sys.exc_info()[:2]
+            stacktrace = traceback.format_exc()
+            logger.debug(
+                f"Validation attempt failed: {e} {v} {stacktrace}")
     assert validated
 
 
@@ -265,7 +264,7 @@ class ArchivalTest(RedpandaTest):
 
             # All objects must belong to the topic we created (make sure we aren't searching on the wrong topic)
             if bucket_content.ignored_objects > 0:
-                raise RuntimeError(f"Unexpected objects in bucket")
+                raise RuntimeError("Unexpected objects in bucket")
 
         # Firewall is unblocked, segment uploads should proceed
         def data_uploaded():
@@ -273,7 +272,7 @@ class ArchivalTest(RedpandaTest):
             has_segments = bucket_content.segment_objects > 0
 
             if not has_segments:
-                self.logger.info(f"No segments yet")
+                self.logger.info("No segments yet")
                 return False
 
             has_segments_in_manifest = any(
@@ -315,7 +314,7 @@ class ArchivalTest(RedpandaTest):
         and check that the data is uploaded"""
         self.kafka_tools.produce(self.topic, 1000, 1024)
         leaders = list(self._get_partition_leaders().values())
-        with firewall_blocked(leaders[0:1], self._s3_port):
+        with firewall_blocked(leaders[:1], self._s3_port):
             self.kafka_tools.produce(self.topic, 9000, 1024)
             time.sleep(10)  # sleep is needed because we need to make sure that
             # reconciliation loop kicked in and started uploading
@@ -548,7 +547,7 @@ class ArchivalTest(RedpandaTest):
             self.logger.debug(
                 f"expected path {expected} is not found in the bucket, bucket content: \n{objlist}"
             )
-            assert not id is None
+            assert id is not None
         manifest = self.cloud_storage_client.get_object_data(
             self.s3_bucket_name, id)
         self.logger.info(f"manifest found: {manifest}")
@@ -629,7 +628,7 @@ class ArchivalTest(RedpandaTest):
             for node_key, node_segments in nodes.items():
                 self.logger.debug(f"checking {ntp} on {node_key}")
                 for mix, msegm in enumerate(manifest_segments):
-                    if not msegm is None:
+                    if msegm is not None:
                         segments = sorted([
                             segment
                             for segment in node_segments if segment.ntp == ntp
@@ -691,15 +690,14 @@ class ArchivalTest(RedpandaTest):
             # Verify goal #2, the last segment on a leader node is manifest.last_offset + 1
             ntp_offsets = []
             for node_key, node_segments in nodes.items():
-                offsets = [
-                    segm.base_offset for segm in node_segments
-                    if segm.ntp == ntp
-                ]
-                if offsets:
-                    max_offset = max([
-                        segm.base_offset for segm in node_segments
+                if offsets := [
+                    segm.base_offset for segm in node_segments if segm.ntp == ntp
+                ]:
+                    max_offset = max(
+                        segm.base_offset
+                        for segm in node_segments
                         if segm.ntp == ntp
-                    ])
+                    )
                     ntp_offsets.append(max_offset)
                     self.logger.debug(
                         f"NTP {ntp} has the largest offset {max_offset} on node {node_key}"
@@ -733,8 +731,7 @@ class ArchivalTest(RedpandaTest):
             manifest = self.cloud_storage_client.get_object_data(
                 self.s3_bucket_name, partition_manifest_id)
             results = [topic_manifest_id, partition_manifest_id]
-            for id in manifest['segments'].keys():
-                results.append(id)
+            results.extend(iter(manifest['segments'].keys()))
             self.logger.debug(f"ListObjects(source: manifest): {results}")
         except:
             results = [
@@ -760,7 +757,7 @@ class ArchivalTest(RedpandaTest):
         remote = self._get_redpanda_s3_checksums()
         self.logger.info(f"S3 checksums: {remote}")
         self.logger.info(f"Local checksums: {local}")
-        assert len(local) != 0
+        assert local
         assert len(remote) != 0
         md5fails = 0
         lookup_fails = 0
@@ -792,7 +789,7 @@ class ArchivalTest(RedpandaTest):
 
             index_expr = fr'{path}\.\d+\.index'
             assert any(re.match(index_expr, entry) for entry in remote), f'expected {index_expr} to be present ' \
-                                                                         f'for log segment {path} but missing'
+                                                                             f'for log segment {path} but missing'
 
         if md5fails != 0:
             self.logger.debug(
@@ -862,9 +859,7 @@ class ArchivalTest(RedpandaTest):
             # strip archiver term id from the segment path
             path = path[9:]
             match = LOG_EXPRESSION.match(path)
-            if match:
-                return match[1]
-            return path
+            return match[1] if match else path
 
         def included(path):
             return not path.endswith(MANIFEST_EXTENSION)

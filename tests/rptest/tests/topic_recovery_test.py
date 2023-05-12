@@ -253,13 +253,12 @@ class BaseCase:
             ("retention.ms", "retention_duration"),
         ]
         for cname, mname in mapping:
-            val = manifest.get(mname)
-            if val:
+            if val := manifest.get(mname):
                 conf[cname] = val
         conf['redpanda.remote.recovery'] = 'true'
         conf['redpanda.remote.write'] = 'true'
         conf['redpanda.remote.read'] = 'false'
-        conf.update(overrides)
+        conf |= overrides
         self.logger.info(f"Confg: {conf}")
         self._rpk.create_topic(topic, npart, nrepl, conf)
 
@@ -715,9 +714,9 @@ class SizeBasedRetention(BaseCase):
         """Produce enough data to trigger uploads to S3/minio.
         Produce exactly 20MB of data. It will be more than 20MB on disk
         which is OK for the test."""
+        # Produce 20MB per partition
+        message_size = 1024
         for topic in self.topics:
-            # Produce 20MB per partition
-            message_size = 1024
             num_messages = int(topic.partition_count * self.max_size_bytes /
                                message_size)
             self._kafka_tools.produce(topic.name, num_messages, message_size)
@@ -808,9 +807,9 @@ class TimeBasedRetention(BaseCase):
 
     def generate_baseline(self):
         """Produce enough data to trigger uploads to S3/minio"""
+        # Produce 20MB per partition
+        message_size = 1024
         for topic in self.topics:
-            # Produce 20MB per partition
-            message_size = 1024
             num_messages = int(topic.partition_count * self.max_size_bytes /
                                message_size)
             self._kafka_tools.produce(topic.name, num_messages, message_size)
@@ -821,13 +820,14 @@ class TimeBasedRetention(BaseCase):
         SegmentAttributes = namedtuple(
             "SegmentAttributes",
             ['base_offset', 'max_timestamp', 'size_bytes', 'name_or_path'])
-        manifests = []
-        for entry in self._list_objects():
-            if entry.endswith("manifest.json"
-                              ) and not entry.endswith("topic_manifest.json"):
-                manifests.append(entry)
+        manifests = [
+            entry
+            for entry in self._list_objects()
+            if entry.endswith("manifest.json")
+            and not entry.endswith("topic_manifest.json")
+        ]
         self.logger.info(f"manifests to patch {manifests}")
-        assert len(manifests) != 0, "No manifests found"
+        assert manifests, "No manifests found"
         for id in manifests:
             data = self._s3.get_object_data(self._bucket, id)
             self.logger.info(f"patching manifest {id}, content: {data}")
@@ -1063,7 +1063,7 @@ class TopicRecoveryTest(RedpandaTest):
             Thread(target=checksummer, daemon=True).start()
             self.logger.debug(
                 f"Started checksum thread for {node.account.hostname}..")
-        for i in range(num_nodes):
+        for _ in range(num_nodes):
             res = queue.get()
             self.logger.debug(
                 f"Node: {res.node.account.hostname} checksums: {res.checksums}"
@@ -1158,7 +1158,7 @@ class TopicRecoveryTest(RedpandaTest):
         # to retention policy.
 
         deltas = deque(maxlen=6)
-        total_partitions = sum([t.partition_count for t in expected_topics])
+        total_partitions = sum(t.partition_count for t in expected_topics)
         tolerance = default_log_segment_size * total_partitions
         path_matcher = PathMatcher(expected_topics)
         """Wait until all topics are uploaded to S3"""
@@ -1241,8 +1241,7 @@ class TopicRecoveryTest(RedpandaTest):
         elected.
         The method is time bound.
         """
-        expected_num_leaders = sum(
-            [t.partition_count for t in recovered_topics])
+        expected_num_leaders = sum(t.partition_count for t in recovered_topics)
 
         def verify():
             num_leaders = 0

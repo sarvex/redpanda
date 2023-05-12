@@ -31,10 +31,7 @@ class ConsumerOffsetsRecovery:
 
     def _render_config(self, node):
         properties = {"bootstrap_servers": self._redpanda.brokers()}
-        content = ""
-        for k, v in properties.items():
-            content += f"{k}={v}\n"
-
+        content = "".join(f"{k}={v}\n" for k, v in properties.items())
         node.account.create_file(self._cfg_path, content)
 
     def change_partition_count(self, partition_count, node, dry_run):

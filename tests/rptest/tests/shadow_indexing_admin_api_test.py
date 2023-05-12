@@ -137,10 +137,16 @@ class SIAdminApiTest(RedpandaTest):
             assert part.start_offset > 0, f"start-offset of the partition is {part.start_offset}, should be greater than 0"
 
     def find_deletion_candidate(self):
-        for obj in self.cloud_storage_client.list_objects(self.s3_bucket_name):
-            if re.match(r'.*/0-[\d-]*-1-v1.log\.\d+$', obj.key):
-                return obj.key
-        return None
+        return next(
+            (
+                obj.key
+                for obj in self.cloud_storage_client.list_objects(
+                    self.s3_bucket_name
+                )
+                if re.match(r'.*/0-[\d-]*-1-v1.log\.\d+$', obj.key)
+            ),
+            None,
+        )
 
     def _get_non_controller_node(self):
         self.admin.wait_stable_configuration('controller',

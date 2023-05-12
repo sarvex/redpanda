@@ -184,11 +184,13 @@ def verify_file_layout(baseline_per_host,
             ntp_size = defaultdict(int)
             for path, entry in fdata.items():
                 it = _parse_checksum_entry(path, entry, ignore_rev=True)
-                if it.ntp.topic in expected_topics:
-                    if it.size > EMPTY_SEGMENT_SIZE:
-                        # filter out empty segments created at the end of the log
-                        # which are created after recovery
-                        ntp_size[it.ntp] += it.size
+                if (
+                    it.ntp.topic in expected_topics
+                    and it.size > EMPTY_SEGMENT_SIZE
+                ):
+                    # filter out empty segments created at the end of the log
+                    # which are created after recovery
+                    ntp_size[it.ntp] += it.size
 
             for ntp, total_size in ntp_size.items():
                 if ntp in ntps and not hosts_can_vary:
@@ -237,7 +239,7 @@ def gen_topic_manifest_path(topic: NT):
     x = xxhash.xxh32()
     path = f"{topic.ns}/{topic.topic}"
     x.update(path.encode('ascii'))
-    hash = x.hexdigest()[0] + '0000000'
+    hash = f'{x.hexdigest()[0]}0000000'
     return f"{hash}/meta/{path}/topic_manifest.json"
 
 
@@ -245,7 +247,7 @@ def gen_manifest_path(ntpr: NTPR):
     x = xxhash.xxh32()
     path = f"{ntpr.ns}/{ntpr.topic}/{ntpr.partition}_{ntpr.revision}"
     x.update(path.encode('ascii'))
-    hash = x.hexdigest()[0] + '0000000'
+    hash = f'{x.hexdigest()[0]}0000000'
     return f"{hash}/meta/{path}/manifest.json"
 
 
@@ -259,14 +261,13 @@ def gen_segment_name_from_meta(meta: dict, key: Optional[str]) -> str:
     :return: adjusted path
     """
     version = meta.get('sname_format', 1)
-    if version > 1:
-        head = '-'.join([
-            str(meta[k]) for k in ('base_offset', 'committed_offset',
-                                   'size_bytes', 'segment_term')
-        ])
-        return f'{head}-v1.log'
-    else:
+    if version <= 1:
         return key
+    head = '-'.join([
+        str(meta[k]) for k in ('base_offset', 'committed_offset',
+                               'size_bytes', 'segment_term')
+    ])
+    return f'{head}-v1.log'
 
 
 def gen_local_path_from_remote(remote_path: str) -> str:
@@ -288,7 +289,7 @@ def get_on_disk_size_per_ntp(chk):
             size = summary[1]
             tmp_size[ntp] += size
         for ntp, size in tmp_size.items():
-            if not ntp in size_bytes_per_ntp or size_bytes_per_ntp[ntp] < size:
+            if ntp not in size_bytes_per_ntp or size_bytes_per_ntp[ntp] < size:
                 size_bytes_per_ntp[ntp] = size
     return size_bytes_per_ntp
 
@@ -316,7 +317,7 @@ def get_expected_ntp_restored_size(nodes_segments_report: NodeSegmentsReport,
             tmp_partition_size[ntp] += size
             tmp_segments_sizes[ntp][segment.base_offset] = size
         for ntp, size in tmp_partition_size.items():
-            if not ntp in size_bytes_per_ntp or size_bytes_per_ntp[ntp] < size:
+            if ntp not in size_bytes_per_ntp or size_bytes_per_ntp[ntp] < size:
                 size_bytes_per_ntp[ntp] = size
                 segments_sizes_per_ntp[ntp] = tmp_segments_sizes[ntp]
         expected_restored_sizes = {}
@@ -493,15 +494,12 @@ class BucketView:
         if 'segments' not in manifest:
             return 0
 
-        start_offset = 0
-        if not include_below_start_offset:
-            start_offset = manifest['start_offset']
-
-        res = sum(seg_meta['size_bytes']
-                  for seg_meta in manifest['segments'].values()
-                  if seg_meta['base_offset'] >= start_offset)
-
-        return res
+        start_offset = 0 if include_below_start_offset else manifest['start_offset']
+        return sum(
+            seg_meta['size_bytes']
+            for seg_meta in manifest['segments'].values()
+            if seg_meta['base_offset'] >= start_offset
+        )
 
     @staticmethod
     def kafka_start_offset(manifest) -> Optional[int]:
@@ -547,15 +545,15 @@ class BucketView:
                              include_below_start_offset: bool = False) -> int:
         self._do_listing()
 
-        total = 0
-        for pm in self._state.partition_manifests.values():
-            total += BucketView.cloud_log_size_from_ntp_manifest(
-                pm, include_below_start_offset=include_below_start_offset)
-
-        return total
+        return sum(
+            BucketView.cloud_log_size_from_ntp_manifest(
+                pm, include_below_start_offset=include_below_start_offset
+            )
+            for pm in self._state.partition_manifests.values()
+        )
 
     def _ensure_listing(self):
-        if not self._state.listed is True:
+        if self._state.listed is not True:
             self._do_listing()
             self._state.listed = True
 
@@ -569,9 +567,7 @@ class BucketView:
                                   f'{pprint.pformat(manifest, indent=2)}')
             elif self.path_matcher.is_segment(o):
                 self._state.segment_objects += 1
-            elif self.path_matcher.is_topic_manifest(o):
-                pass
-            else:
+            elif not self.path_matcher.is_topic_manifest(o):
                 self._state.ignored_objects += 1
 
     def _load_manifest(self, ntp, path):
@@ -716,10 +712,7 @@ class BucketView:
                                         partition: int,
                                         ns: str = 'kafka') -> int:
         manifest = self.manifest_for_ntp(topic, partition, ns)
-        if 'segments' not in manifest:
-            return 0
-
-        return len(manifest['segments'])
+        return 0 if 'segments' not in manifest else len(manifest['segments'])
 
     def cloud_log_size_for_ntp(self,
                                topic: str,
@@ -750,6 +743,6 @@ class BucketView:
 
     def assert_segments_replaced(self, topic: str, partition: int):
         manifest_data = self.manifest_for_ntp(topic, partition)
-        assert len(manifest_data.get(
-            'replaced',
-            [])) > 0, f"No replaced segments after compacted segments uploaded"
+        assert (
+            len(manifest_data.get('replaced', [])) > 0
+        ), "No replaced segments after compacted segments uploaded"

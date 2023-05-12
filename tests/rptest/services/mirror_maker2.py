@@ -61,13 +61,11 @@ class MirrorMaker2(Service):
     def path(self, script):
 
         version = '3.0.0'
-        return "/opt/kafka-{}/bin/{}".format(version, script)
+        return f"/opt/kafka-{version}/bin/{script}"
 
     def start_node(self, node):
-        node.account.ssh("mkdir -p %s" % MirrorMaker2.PERSISTENT_ROOT,
-                         allow_fail=False)
-        node.account.ssh("mkdir -p %s" % MirrorMaker2.LOG_DIR,
-                         allow_fail=False)
+        node.account.ssh(f"mkdir -p {MirrorMaker2.PERSISTENT_ROOT}", allow_fail=False)
+        node.account.ssh(f"mkdir -p {MirrorMaker2.LOG_DIR}", allow_fail=False)
 
         mm2_props = self.render("mirror_maker2.properties",
                                 source_brokers=self.source.brokers(),
@@ -104,13 +102,12 @@ class MirrorMaker2(Service):
     def clean_node(self, node):
         if self.alive(node):
             self.logger.warn(
-                "%s %s was still alive at cleanup time. Killing forcefully..."
-                % (self.__class__.__name__, node.account))
+                f"{self.__class__.__name__} {node.account} was still alive at cleanup time. Killing forcefully..."
+            )
         node.account.kill_java_processes(self.java_class_name(),
                                          clean_shutdown=False,
                                          allow_fail=True)
-        node.account.ssh("rm -rf %s" % MirrorMaker2.PERSISTENT_ROOT,
-                         allow_fail=False)
+        node.account.ssh(f"rm -rf {MirrorMaker2.PERSISTENT_ROOT}", allow_fail=False)
 
     def java_class_name(self):
         return "org.apache.kafka.connect.mirror.MirrorMaker"

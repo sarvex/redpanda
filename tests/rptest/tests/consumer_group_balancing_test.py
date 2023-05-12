@@ -45,9 +45,9 @@ class ConsumerGroupBalancingTest(RedpandaTest):
             },
             **kwargs)
 
-    def make_consumer_properties(base_properties, instance_id=None):
+    def make_consumer_properties(self, instance_id=None):
         properties = {}
-        properties.update(base_properties)
+        properties |= self
         if instance_id:
             properties['group.instance.id'] = instance_id
         return properties
@@ -72,8 +72,8 @@ class ConsumerGroupBalancingTest(RedpandaTest):
                                 make_consumer_properties(
                                     consumer_properties, instance_id))
 
-    def consumed_at_least(consumers, count):
-        return all([len(c._messages) > count for c in consumers])
+    def consumed_at_least(self, count):
+        return all(len(c._messages) > count for c in consumers)
 
     def validate_group_state(self,
                              group,
@@ -122,10 +122,10 @@ class ConsumerGroupBalancingTest(RedpandaTest):
         for i in range(cgroup_balancing_test_num_groups):
             group_name = f"cgrp-{i}"  # only tested for 1..3 yet
             group_hash = xxh64(group_name).intdigest()
-            assert not group_hash in group_hashes
+            assert group_hash not in group_hashes
             partition_id = jump.hash(group_hash,
                                      cgroup_balancing_test_num_groups)
-            assert not partition_id in partition_ids
+            assert partition_id not in partition_ids
             groups.append(group_name)
             group_hashes.add(group_hash)
             partition_ids.add(partition_id)
@@ -148,19 +148,19 @@ class ConsumerGroupBalancingTest(RedpandaTest):
             consumers_all.append(consumer)
 
         # wait for some messages
-        self.logger.info(f"waiting for some messages")
+        self.logger.info("waiting for some messages")
         wait_until(
             lambda: ConsumerGroupBalancingTest.consumed_at_least(
                 consumers_all, 50), 30, 2)
         # all groups should be stable
-        self.logger.info(f"checking groups are stable")
+        self.logger.info("checking groups are stable")
         for group in groups:
             self.validate_group_state(group,
                                       expected_state="Stable",
                                       static_members=static_members,
                                       group_members=1)
         # stop consumers
-        self.logger.info(f"stopping producers and consumers")
+        self.logger.info("stopping producers and consumers")
         for c in consumers_all:
             c.stop()
         for c in consumers_all:

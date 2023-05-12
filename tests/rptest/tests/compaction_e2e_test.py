@@ -84,7 +84,7 @@ class CompactionE2EIdempotencyTest(RedpandaTest):
         self.logger.info(
             f"Waiting for {expect_progress} writes to ensure progress")
         rw_verifier.ensure_progress(expect_progress, 30)
-        self.logger.info(f"The test made progress")
+        self.logger.info("The test made progress")
 
         rpk = RpkTool(self.redpanda)
         cfgs = rpk.describe_topic_configs(self.topic)
@@ -109,8 +109,7 @@ class CompactionE2EIdempotencyTest(RedpandaTest):
             return True
 
         timeout_sec = 300
-        self.logger.info(
-            f"wait for multiple segments to appear in topic partitions")
+        self.logger.info("wait for multiple segments to appear in topic partitions")
         # wait for multiple segments to appear in topic partitions
         wait_until(lambda: segment_number_matches(lambda s: s >= 5),
                    timeout_sec=timeout_sec,
@@ -125,19 +124,19 @@ class CompactionE2EIdempotencyTest(RedpandaTest):
         self.logger.info(
             f"Waiting for {expect_progress} writes to ensure progress")
         rw_verifier.ensure_progress(expect_progress, 30)
-        self.logger.info(f"The test made progress, stopping producer")
+        self.logger.info("The test made progress, stopping producer")
         rw_verifier.remote_stop_producer()
         rw_verifier.remote_wait_producer()
-        self.logger.info(f"Producer is stopped")
+        self.logger.info("Producer is stopped")
 
         current_segments_per_partition = self.topic_segments()
         self.logger.info(
             f"Stopped producer, segments per partition: {current_segments_per_partition}"
         )
         # make compaction frequent
-        self.logger.info(f"setting log_compaction_interval_ms to {3600}")
+        self.logger.info('setting log_compaction_interval_ms to 3600')
         rpk.cluster_config_set("log_compaction_interval_ms", str(3000))
-        self.logger.info(f"waiting for compaction to happen")
+        self.logger.info("waiting for compaction to happen")
 
         # it looks like we're guessing that the number of compacted
         # segments is less than 5, a place or a potential timeout when
@@ -146,7 +145,7 @@ class CompactionE2EIdempotencyTest(RedpandaTest):
                    timeout_sec=timeout_sec,
                    backoff_sec=2)
 
-        self.logger.info(f"enable consumer and validate consumed records")
+        self.logger.info("enable consumer and validate consumed records")
         rw_verifier.remote_start_consumer()
         rw_verifier.remote_wait_consumer()
         rw_verifier.stop()

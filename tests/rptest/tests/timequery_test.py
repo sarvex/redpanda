@@ -87,7 +87,7 @@ class BaseTimeQuery:
 
         # We know timestamps, they are generated linearly from the
         # base we provided to kgo-verifier
-        timestamps = dict((i, base_ts + i) for i in range(0, msg_count))
+        timestamps = {i: base_ts + i for i in range(0, msg_count)}
         return topic, timestamps
 
     def _test_timequery(self, cluster, cloud_storage: bool, batch_cache: bool):
@@ -380,7 +380,7 @@ class TimeQueryTest(RedpandaTest, BaseTimeQuery):
                 else:
                     self.logger.info(f"Query at {o} succeeded on retry")
 
-        assert not any([e > 0 for e in errors])
+        assert all(e <= 0 for e in errors)
 
 
 class TimeQueryKafkaTest(Test, BaseTimeQuery):
@@ -473,7 +473,7 @@ class TestReadReplicaTimeQuery(RedpandaTest):
             }
             rpk_rr_cluster.create_topic(self.topic_name, config=conf)
         except:
-            self.logger.warn(f"Failed to create a read-replica topic")
+            self.logger.warn("Failed to create a read-replica topic")
             return False
         return True
 

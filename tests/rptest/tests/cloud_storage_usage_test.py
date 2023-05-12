@@ -137,7 +137,7 @@ class CloudStorageUsageTest(RedpandaTest, PartitionMovementMixin):
         for p in producers:
             p.start()
 
-        producers_done = lambda: all([p.is_complete() for p in producers])
+        producers_done = lambda: all(p.is_complete() for p in producers)
         while not producers_done():
             self._check_usage(timeout_sec=5)
 
@@ -166,7 +166,7 @@ class CloudStorageUsageTest(RedpandaTest, PartitionMovementMixin):
             partitions.extend([(topic.name, pid)
                                for pid in range(topic.partition_count)])
 
-        producers_done = lambda: all([p.is_complete() for p in producers])
+        producers_done = lambda: all(p.is_complete() for p in producers)
 
         while not producers_done():
             ntp_to_move = random.choice(partitions)

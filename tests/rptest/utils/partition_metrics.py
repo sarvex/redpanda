@@ -28,9 +28,6 @@ class PartitionMetrics:
         family = self.redpanda.metrics_sample(metric_name,
                                               nodes=self.redpanda.nodes)
         assert family, "Missing metrics."
-        total = 0
-        for sample in family.samples:
-            total += sample.value
-
+        total = sum(sample.value for sample in family.samples)
         self.redpanda.logger.debug(f"sum: {metric_name} - {total}")
         return total

@@ -1,6 +1,5 @@
 def read_broker_shard(reader):
-    b = {}
-    b['id'] = reader.read_int32()
+    b = {'id': reader.read_int32()}
     b['shard'] = reader.read_uint32()
     return b
 
@@ -18,24 +17,24 @@ def read_inc_update_op(reader):
 
 
 def read_property_update(reader, type_reader):
-    u = {}
-    u['value'] = type_reader(reader)
+    u = {'value': type_reader(reader)}
     u['type'] = read_inc_update_op(reader)
     return u
 
 
 def read_ntp(reader):
-    ntp = {}
-    ntp['namespace'] = reader.read_string()
+    ntp = {'namespace': reader.read_string()}
     ntp['topic'] = reader.read_string()
     ntp['partition'] = reader.read_int32()
     return ntp
 
 
 def read_incremental_properties_update(reader):
-    u = {}
-    u['compression'] = read_property_update(
-        reader, lambda r: r.read_optional(lambda r: r.read_uint8()))
+    u = {
+        'compression': read_property_update(
+            reader, lambda r: r.read_optional(lambda r: r.read_uint8())
+        )
+    }
     u['cleanup_policy'] = read_property_update(
         reader, lambda r: r.read_optional(lambda r: r.read_int8()))
     u['compaction_strategy'] = read_property_update(
@@ -52,16 +51,14 @@ def read_incremental_properties_update(reader):
 
 
 def read_endpoint(r):
-    ep = {}
-    ep['name'] = r.read_string()
+    ep = {'name': r.read_string()}
     ep['address'] = r.read_string()
     ep['port'] = r.read_uint16()
     return ep
 
 
 def read_broker(rdr):
-    br = {}
-    br['id'] = rdr.read_int32()
+    br = {'id': rdr.read_int32()}
     br['kafka_endpoints'] = rdr.read_vector(lambda r: read_endpoint(r))
     br['rpc_address'] = rdr.read_string()
     br['rpc_port'] = rdr.read_uint16()
@@ -82,9 +79,8 @@ def read_configuration_update(rdr):
 
 
 def read_raft_config(rdr):
-    cfg = {}
+    cfg = {'version': rdr.read_int8()}
 
-    cfg['version'] = rdr.read_int8()
     if cfg['version'] < 5:
         cfg['brokers'] = rdr.read_vector(read_broker)
     cfg['current_config'] = read_group_nodes(rdr)
@@ -99,15 +95,13 @@ def read_raft_config(rdr):
 
 
 def read_vnode(r):
-    vn = {}
-    vn['id'] = r.read_int32()
+    vn = {'id': r.read_int32()}
     vn['revision'] = r.read_int64()
     return vn
 
 
 def read_group_nodes(r):
-    ret = {}
-    ret['voters'] = r.read_vector(read_vnode)
+    ret = {'voters': r.read_vector(read_vnode)}
     ret['learners'] = r.read_vector(read_vnode)
     return ret
 
@@ -176,10 +170,7 @@ def decode_acl_permission(p):
 
 
 def decode_acl_principal_type(p):
-    if p == 0:
-        return 'user'
-
-    return "unknown"
+    return 'user' if p == 0 else "unknown"
 
 
 def decode_acl_operation(o):
@@ -210,8 +201,7 @@ def decode_acl_operation(o):
 
 
 def read_acl_pattern(rdr):
-    pattern = {}
-    pattern['resource'] = decode_acl_resource(rdr.read_int8())
+    pattern = {'resource': decode_acl_resource(rdr.read_int8())}
     pattern['name'] = rdr.read_string()
     pattern['type'] = decode_acl_pattern_type(rdr.read_int8())
 
@@ -219,12 +209,10 @@ def read_acl_pattern(rdr):
 
 
 def read_acl_entry(rdr):
-    entry = {}
-    entry['principal'] = {}
+    entry = {'principal': {}}
     entry['principal']['type'] = decode_acl_principal_type(rdr.read_int8())
     entry['principal']['name'] = rdr.read_string()
-    entry['host'] = {}
-    entry['host']['ipv4'] = rdr.read_bool()
+    entry['host'] = {'ipv4': rdr.read_bool()}
     entry['host']['data'] = rdr.read_optional(lambda r: r.read_iobuf())
     entry['operation'] = decode_acl_operation(rdr.read_int8())
     entry['permission'] = decode_acl_permission(rdr.read_int8())
@@ -233,26 +221,23 @@ def read_acl_entry(rdr):
 
 
 def read_acl(rdr):
-    acl = {}
-    acl['pattern'] = read_acl_pattern(rdr)
+    acl = {'pattern': read_acl_pattern(rdr)}
     acl['entry'] = read_acl_entry(rdr)
     return acl
 
 
 def obfuscate_secret(s):
-    return f"{s[0:3]}..."
+    return f"{s[:3]}..."
 
 
 def read_broker_shard(rdr):
-    bs = {}
-    bs['node_id'] = rdr.read_int32()
+    bs = {'node_id': rdr.read_int32()}
     bs['shard'] = rdr.read_uint32()
     return bs
 
 
 def read_partition_assignment(rdr):
-    pas = {}
-    pas['group_id'] = rdr.read_int64()
+    pas = {'group_id': rdr.read_int64()}
     pas['partition_id'] = rdr.read_int32()
     pas['replicas'] = rdr.read_vector(read_broker_shard)
     return pas

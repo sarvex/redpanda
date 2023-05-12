@@ -42,7 +42,7 @@ class ExampleRunner(BackgroundThreadService):
         self._example.set_node_name(node.name)
 
         # Run the example until the condition is met or timeout occurs
-        cmd = "echo $$ ; " + self._example.cmd()
+        cmd = f"echo $$ ; {self._example.cmd()}"
         output_iter = node.account.ssh_capture(cmd)
 
         start_time = time.time()
@@ -91,9 +91,7 @@ class ExampleRunner(BackgroundThreadService):
             node.account.kill_process(self._example.process_to_kill(),
                                       clean_shutdown=False)
         except RemoteCommandError as e:
-            if b"No such process" in e.msg:
-                pass
-            else:
+            if b"No such process" not in e.msg:
                 raise
 
     def clean_node(self, nodes):

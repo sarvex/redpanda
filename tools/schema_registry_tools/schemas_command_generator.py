@@ -52,10 +52,7 @@ def main():
     tmp = '['
     with open(options.path) as f:
         for l in f.read().splitlines():
-            if l.startswith('}'):
-                tmp += ('},')
-            else:
-                tmp += (l)
+            tmp += '},' if l.startswith('}') else l
     tmp = re.sub('},$', '}]', tmp)
     j = json.loads(tmp)
 
@@ -70,11 +67,7 @@ offset {i['offset']} at key {i['key']}. \nThat is it's likely broken, hence exit
 
             break
         cmd_all += f"echo '{i['value']}' | rpk topic produce _schemas --compression none -k '{i['key']}'\n"
-        if c == len(j) - 1:
-            cmd_all += "echo Done"
-        else:
-            cmd_all += "sleep 1s\n"
-
+        cmd_all += "echo Done" if c == len(j) - 1 else "sleep 1s\n"
     print(cmd_all)
 
 

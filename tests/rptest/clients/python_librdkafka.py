@@ -65,25 +65,21 @@ class PythonLibrdkafka:
                 c = (self._username, self._password, self._algorithm)
             else:
                 c = self._redpanda.SUPERUSER_CREDENTIALS
-            conf.update({
+            conf |= {
                 'sasl.mechanism': c[2],
                 'security.protocol': 'sasl_plaintext',
                 'sasl.username': c[0],
                 'sasl.password': c[1],
-            })
+            }
         if self._tls_cert:
-            conf.update({
+            conf |= {
                 'ssl.key.location': self._tls_cert.key,
                 'ssl.certificate.location': self._tls_cert.crt,
                 'ssl.ca.location': self._tls_cert.ca.crt,
-            })
+            }
             if self._redpanda.sasl_enabled():
-                conf.update({
-                    'security.protocol': 'sasl_ssl',
-                })
+                conf['security.protocol'] = 'sasl_ssl'
             else:
-                conf.update({
-                    'security.protocol': 'ssl',
-                })
+                conf['security.protocol'] = 'ssl'
         self._redpanda.logger.info(conf)
         return conf

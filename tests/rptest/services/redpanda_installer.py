@@ -267,10 +267,10 @@ class RedpandaInstaller:
         # Verify that the installations on each node match.
         for node in nodes:
             vers = self._redpanda.get_version(node)
-            if initial_version == None:
+            if initial_version is None:
                 initial_version = vers
             assert initial_version == vers, \
-                f"Mismatch version {node.account.hostname} has {vers}, {nodes[0].account.hostname} has {initial_version}"
+                    f"Mismatch version {node.account.hostname} has {vers}, {nodes[0].account.hostname} has {initial_version}"
             node.account.ssh_output(f"mkdir -p {self.INSTALLER_ROOT}")
 
         try:
@@ -280,7 +280,7 @@ class RedpandaInstaller:
             self._release_install_lock()
 
         # Start out pointing /opt/redpanda at the current installation.
-        ssh_setup_head_per_node = dict()
+        ssh_setup_head_per_node = {}
         head_root_path = self.root_for_version(RedpandaInstaller.HEAD)
         for node in nodes:
             if not node.account.exists("/opt/redpanda"):
@@ -428,20 +428,19 @@ class RedpandaInstaller:
         self.start()
 
         # if requesting current (or future) release line, return _head_version
-        if release_line >= self._head_version[0:2]:
+        if release_line >= self._head_version[:2]:
             self._redpanda.logger.info(
                 f"selecting HEAD={self._head_version} for {release_line=}")
             return (self._head_version, True)
 
-        versions_in_line = [
-            v for v in self.released_versions if release_line == v[0:2]
-        ]
-        assert len(versions_in_line) > 0,\
-            f"could not find a line for {release_line=} in {self.released_versions=}"
+        versions_in_line = [v for v in self.released_versions if release_line == v[:2]]
+        assert (
+            versions_in_line
+        ), f"could not find a line for {release_line:=} in {self.released_versions:=}"
 
         # Only checks these many version before giving up. one missing version is fine in a transient state,
         # but more would indicate a systemic issues in package download
-        for v in versions_in_line[0:2]:
+        for v in versions_in_line[:2]:
             # check actual availability
             if self._avail_for_download(v):
                 self._redpanda.logger.info(
@@ -452,7 +451,9 @@ class RedpandaInstaller:
                     f"skipping {v=} for {release_line=} because it's not available for downloading"
                 )
 
-        assert False, f"no downloadable versions in {versions_in_line[0:2]} for {release_line=}"
+        assert (
+            False
+        ), f"no downloadable versions in {versions_in_line[:2]} for {release_line:=}"
 
     def install(self, nodes, version: typing.Union[str, tuple[int, int],
                                                    tuple[int, int, int]]):
@@ -505,14 +506,12 @@ class RedpandaInstaller:
         if self._nodes_share_installs:
             nodes_to_download = [nodes[0]]
 
-        ssh_download_per_node = dict()
-        for node in nodes_to_download:
-            if not version == RedpandaInstaller.HEAD and not node.account.exists(
-                    version_root):
-                ssh_download_per_node[
-                    node] = self._async_download_on_node_unlocked(
-                        node, version)
-
+        ssh_download_per_node = {
+            node: self._async_download_on_node_unlocked(node, version)
+            for node in nodes_to_download
+            if version != RedpandaInstaller.HEAD
+            and not node.account.exists(version_root)
+        }
         try:
             self.wait_for_async_ssh(self._redpanda.logger,
                                     ssh_download_per_node,
@@ -523,13 +522,12 @@ class RedpandaInstaller:
             )
             # TODO: make failure handling more fine-grained. If deploying on
             # dedicated nodes, we only need to clean up the node that failed.
-            for node in ssh_download_per_node:
-                ssh_iter = ssh_download_per_node[node]
+            for node, ssh_iter in ssh_download_per_node.items():
                 if ssh_iter.has_next():
                     # Drain the iterator to make sure we wait for on-going
                     # downloads to finish before cleaning up.
                     try:
-                        [l for l in ssh_iter]
+                        list(ssh_iter)
                     except:
                         pass
                 # Be permissive so we can clean everything.
@@ -590,16 +588,15 @@ class RedpandaInstaller:
         """
         head_root_path = self.root_for_version(RedpandaInstaller.HEAD)
         for node in nodes:
-            host = node.account.hostname
             if self._head_backed_up:
                 assert not self._nodes_share_installs
                 # NOTE: no locking required since installs aren't shared.
                 head_root_path_exists = node.account.exists(head_root_path)
-                opt_redpanda_exists = node.account.exists("/opt/redpanda")
-                if opt_redpanda_exists:
+                host = node.account.hostname
+                if opt_redpanda_exists := node.account.exists("/opt/redpanda"):
                     if not node.account.islink("/opt/redpanda"):
                         assert not head_root_path_exists, \
-                            f"{host}: {head_root_path} exists and /opt/redpanda exists but is not a link; unclear which to use"
+                                f"{host}: {head_root_path} exists and /opt/redpanda exists but is not a link; unclear which to use"
                         continue
                     node.account.ssh_output("unlink /opt/redpanda",
                                             allow_fail=True)

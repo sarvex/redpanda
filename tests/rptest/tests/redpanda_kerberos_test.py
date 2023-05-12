@@ -106,11 +106,11 @@ class RedpandaKerberosTest(RedpandaKerberosTestBase):
                             password=password,
                             sasl_mechanism=mechanism)
 
-        client_user_principal = f"User:client"
-
         # Create a topic that's visible to "client" iff acl = True
         super_rpk.create_topic("needs_acl")
         if acl:
+            client_user_principal = "User:client"
+
             super_rpk.sasl_allow_principal(client_user_principal,
                                            ["write", "read", "describe"],
                                            "topic", "needs_acl", username,
@@ -137,9 +137,7 @@ class RedpandaKerberosTest(RedpandaKerberosTestBase):
                     f"Did not receive expected set of topics with {metadata_fn.__name__}"
                 )
                 assert not fail
-            except AuthenticationError:
-                assert fail
-            except TimeoutError:
+            except (AuthenticationError, TimeoutError):
                 assert fail
 
     def _have_expected_topics(self, metadata_fn, req_principal,
@@ -237,11 +235,14 @@ class RedpandaKerberosRulesTesting(RedpandaKerberosTestBase):
         rpk.cluster_config_set("sasl_kerberos_principal_mapping",
                                json.dumps(rules))
 
-        wait_until(lambda: self._have_expected_topics(kerberos_principal,
-                                                      set(expected_topics)),
-                   timeout_sec=5,
-                   backoff_sec=0.5,
-                   err_msg=f"Did not receive expected set of topics")
+        wait_until(
+            lambda: self._have_expected_topics(
+                kerberos_principal, set(expected_topics)
+            ),
+            timeout_sec=5,
+            backoff_sec=0.5,
+            err_msg="Did not receive expected set of topics",
+        )
 
     def _have_expected_topics(self, req_principal, topics_set):
         metadata = self.client.metadata(req_principal)
@@ -368,7 +369,7 @@ class RedpandaKerberosExternalActiveDirectoryTest(RedpandaKerberosTestBase):
     @ok_to_fail  # Not all CI builders have access to an ADDS - let's find out which ones.
     @cluster(num_nodes=2)
     def test_metadata(self):
-        principal = f"client/localhost"
+        principal = "client/localhost"
         self.client.add_primary(primary=principal)
         metadata = self.client.metadata(principal)
         self.logger.info(f"metadata: {metadata}")

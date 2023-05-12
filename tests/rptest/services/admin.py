@@ -168,15 +168,15 @@ class Admin:
                 f"requesting \"{namespace}/{topic}/{partition}\" details from {host})"
             )
             meta = self._get_configuration(host, namespace, topic, partition)
-            if meta == None:
+            if meta is None:
                 return None
             if "replicas" not in meta:
-                self.redpanda.logger.debug(f"replicas are missing")
+                self.redpanda.logger.debug("replicas are missing")
                 return None
             if "status" not in meta:
-                self.redpanda.logger.debug(f"status is missing")
+                self.redpanda.logger.debug("status is missing")
                 return None
-            if status == None:
+            if status is None:
                 status = meta["status"]
                 self.redpanda.logger.debug(f"get status:{status}")
             if status != meta["status"]:
@@ -187,20 +187,18 @@ class Admin:
             read_replicas = meta["replicas"]
             if replicas is None:
                 replicas = read_replicas
-                self.redpanda.logger.debug(
-                    f"get replicas:{read_replicas} from {host}")
+                self.redpanda.logger.debug(f"get replicas:{replicas} from {host}")
             elif not self._equal_assignments(replicas, read_replicas):
                 self.redpanda.logger.debug(
                     f"get conflicting replicas:{read_replicas} from {host}")
                 return None
-            if replication != None:
-                if len(meta["replicas"]) != replication:
-                    self.redpanda.logger.debug(
-                        f"expected replication:{replication} got:{len(meta['replicas'])}"
-                    )
-                    return None
+            if replication != None and len(meta["replicas"]) != replication:
+                self.redpanda.logger.debug(
+                    f"expected replication:{replication} got:{len(meta['replicas'])}"
+                )
+                return None
             if meta["leader_id"] < 0:
-                self.redpanda.logger.debug(f"doesn't have leader")
+                self.redpanda.logger.debug("doesn't have leader")
                 return None
             if last_leader < 0:
                 last_leader = int(meta["leader_id"])
@@ -235,7 +233,7 @@ class Admin:
 
         When the timeout is exhaust it throws TimeoutException
         """
-        if hosts == None:
+        if hosts is None:
             hosts = [n.account.hostname for n in self.redpanda.nodes]
         hosts = list(hosts)
 
@@ -251,9 +249,7 @@ class Admin:
                                                       partition=partition,
                                                       namespace=namespace,
                                                       replication=replication)
-                if info == None:
-                    return False
-                return True, info
+                return False if info is None else (True, info)
             except RequestException:
                 self.redpanda.logger.exception(
                     "an error on getting stable configuration, retrying")
@@ -291,9 +287,7 @@ class Admin:
                                                   timeout_s=timeout_s,
                                                   hosts=hosts,
                                                   backoff_s=backoff_s)
-            if check(info.leader):
-                return True, info.leader
-            return False
+            return (True, info.leader) if check(info.leader) else False
 
         return wait_until_result(
             is_leader_stable,
@@ -333,32 +327,30 @@ class Admin:
             try:
                 r = self._session.request(verb, url, **kwargs)
             except requests.ConnectionError:
-                if retry_connection and fallback_nodes:
-                    node = random.choice(fallback_nodes)
-                    fallback_nodes = list(
-                        filter(lambda n: n != node, fallback_nodes))
-                    self.redpanda.logger.info(
-                        f"Connection error, retrying on node {node.account.hostname} (remaining {[n.account.hostname for n in fallback_nodes]})"
-                    )
-                else:
+                if not retry_connection or not fallback_nodes:
                     raise
+                node = random.choice(fallback_nodes)
+                fallback_nodes = list(
+                    filter(lambda n: n != node, fallback_nodes))
+                self.redpanda.logger.info(
+                    f"Connection error, retrying on node {node.account.hostname} (remaining {[n.account.hostname for n in fallback_nodes]})"
+                )
             else:
                 break
 
         # Log the response
         if r.status_code != 200:
             self.redpanda.logger.warn(f"Response {r.status_code}: {r.text}")
-        else:
-            if 'application/json' in r.headers.get('Content-Type') and len(
+        elif 'application/json' in r.headers.get('Content-Type') and len(
                     r.text):
-                try:
-                    self.redpanda.logger.debug(
-                        f"Response OK, JSON: {r.json()}")
-                except json.decoder.JSONDecodeError as e:
-                    self.redpanda.logger.debug(
-                        f"Response OK, Malformed JSON: '{r.text}' ({e})")
-            else:
-                self.redpanda.logger.debug("Response OK")
+            try:
+                self.redpanda.logger.debug(
+                    f"Response OK, JSON: {r.json()}")
+            except json.decoder.JSONDecodeError as e:
+                self.redpanda.logger.debug(
+                    f"Response OK, Malformed JSON: '{r.text}' ({e})")
+        else:
+            self.redpanda.logger.debug("Response OK")
 
         r.raise_for_status()
         return r
@@ -398,7 +390,7 @@ class Admin:
 
         if params:
             joined = "&".join([f"{k}={v}" for k, v in params.items()])
-            path = path + f"?{joined}"
+            path += f"?{joined}"
 
         return self._request("PUT",
                              path,
@@ -433,8 +425,7 @@ class Admin:
                 self.redpanda.logger.debug(
                     f"Could not get features on {node.account.hostname}: {e}")
                 return False
-            features_dict = dict(
-                (f["name"], f) for f in features_resp["features"])
+            features_dict = {f["name"]: f for f in features_resp["features"]}
             return features_dict[feature_name]["state"] == "active"
 
         for node in nodes:
@@ -524,7 +515,7 @@ class Admin:
         """
         Trigger on demand partitions rebalancing
         """
-        path = f"partitions/rebalance"
+        path = "partitions/rebalance"
 
         return self._request('post', path, node=node)
 
@@ -532,7 +523,7 @@ class Admin:
         """
         List pending reconfigurations
         """
-        path = f"partitions/reconfigurations"
+        path = "partitions/reconfigurations"
 
         return self._request('get', path, node=node).json()
 
@@ -667,7 +658,7 @@ class Admin:
         self.redpanda.logger.debug(
             f"Creating user {username}:{password}:{algorithm}")
 
-        path = f"security/users"
+        path = "security/users"
 
         self._request("POST",
                       path,
@@ -745,7 +736,7 @@ class Admin:
 
         #  check which node is current leader
 
-        if leader_id == None:
+        if leader_id is None:
             leader_id = self.await_stable_leader(topic,
                                                  partition=partition,
                                                  namespace=namespace,
@@ -811,7 +802,7 @@ class Admin:
             id = self.redpanda.node_id(node)
             self.redpanda.logger.info(f"Get leaders info on {node.name}/{id}")
         else:
-            self.redpanda.logger.info(f"Get leaders info on any node")
+            self.redpanda.logger.info("Get leaders info on any node")
 
         url = "debug/partition_leaders_table"
         return self._request("get", url, node=node).json()
@@ -834,8 +825,7 @@ class Admin:
                              node=node).json()
 
     def get_controller_status(self, node):
-        return self._request("GET", f"debug/controller_status",
-                             node=node).json()
+        return self._request("GET", "debug/controller_status", node=node).json()
 
     def get_cluster_uuid(self, node):
         try:
@@ -891,9 +881,9 @@ class Admin:
                 "GET", "debug/cloud_storage_usage?retries_allowed=10").json())
 
     def get_usage(self, node, include_open: bool = True):
-        return self._request("GET",
-                             f"usage?include_open_bucket={str(include_open)}",
-                             node=node).json()
+        return self._request(
+            "GET", f"usage?include_open_bucket={include_open}", node=node
+        ).json()
 
     def refresh_disk_health_info(self, node: Optional[ClusterNode] = None):
         """

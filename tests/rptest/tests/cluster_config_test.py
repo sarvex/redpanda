@@ -132,7 +132,7 @@ class ClusterConfigTest(RedpandaTest):
             assert s['restart'] is False
             assert not s['invalid']
             assert not s['unknown']
-        assert len(set([s['config_version'] for s in status])) == 1
+        assert len({s['config_version'] for s in status}) == 1
 
     @cluster(num_nodes=1)
     def test_get_config_nodefaults(self):
@@ -195,13 +195,17 @@ class ClusterConfigTest(RedpandaTest):
         result.
         """
         wait_until(
-            lambda: set([
-                n['config_version'] for n in self.admin.
-                get_cluster_config_status(node=self.redpanda.controller())
-            ]) == {version},
+            lambda: {
+                n['config_version']
+                for n in self.admin.get_cluster_config_status(
+                    node=self.redpanda.controller()
+                )
+            }
+            == {version},
             timeout_sec=10,
             backoff_sec=0.5,
-            err_msg=f"Config status versions did not converge on {version}")
+            err_msg=f"Config status versions did not converge on {version}",
+        )
 
     def _wait_for_version_status_sync(self, version):
         """
@@ -211,9 +215,9 @@ class ClusterConfigTest(RedpandaTest):
         """
         def is_complete(node):
             node_status = self.admin.get_cluster_config_status(node=node)
-            return set(n['config_version'] for n in node_status) == {
-                version
-            } and len(node_status) == len(self.redpanda.nodes)
+            return {n['config_version'] for n in node_status} == {version} and len(
+                node_status
+            ) == len(self.redpanda.nodes)
 
         for node in self.redpanda.nodes:
             wait_until(lambda: is_complete(node),
@@ -249,19 +253,21 @@ class ClusterConfigTest(RedpandaTest):
         first_node = self.redpanda.nodes[0]
         other_nodes = self.redpanda.nodes[1:]
         self.redpanda.restart_nodes(first_node)
-        wait_until(lambda: self.admin.get_cluster_config_status()[0]['restart']
-                   == False,
-                   timeout_sec=10,
-                   backoff_sec=0.5,
-                   err_msg=f"Restart flag did not clear after restart")
+        wait_until(
+            lambda: self.admin.get_cluster_config_status()[0]['restart'] == False,
+            timeout_sec=10,
+            backoff_sec=0.5,
+            err_msg="Restart flag did not clear after restart",
+        )
 
         self.redpanda.restart_nodes(other_nodes)
-        wait_until(lambda: set(
-            [n['restart']
-             for n in self.admin.get_cluster_config_status()]) == {False},
-                   timeout_sec=10,
-                   backoff_sec=0.5,
-                   err_msg=f"Not all nodes cleared restart flag")
+        wait_until(
+            lambda: {n['restart'] for n in self.admin.get_cluster_config_status()}
+            == {False},
+            timeout_sec=10,
+            backoff_sec=0.5,
+            err_msg="Not all nodes cleared restart flag",
+        )
 
     @cluster(num_nodes=3)
     def test_restart(self):
@@ -411,7 +417,7 @@ class ClusterConfigTest(RedpandaTest):
             assert set(
                 e.response.json().keys()) == {"log_message_timestamp_type"}
         else:
-            raise RuntimeError(f"Expected 400 but got success")
+            raise RuntimeError("Expected 400 but got success")
 
         # A valid PUT
         self.admin.patch_cluster_config(
@@ -543,20 +549,11 @@ class ClusterConfigTest(RedpandaTest):
                 if p['type'] == "array":
                     valid_value = yaml.full_load(valid_value)
             elif p['type'] == 'integer':
-                if initial_value:
-                    valid_value = initial_value * 2
-                else:
-                    valid_value = 100
+                valid_value = initial_value * 2 if initial_value else 100
             elif p['type'] == 'number':
-                if initial_value:
-                    valid_value = float(initial_value * 2)
-                else:
-                    valid_value = 1000.0
+                valid_value = float(initial_value * 2) if initial_value else 1000.0
             elif p['type'] == 'string':
-                if name.endswith("_url"):
-                    valid_value = "http://example.com"
-                else:
-                    valid_value = "rhubarb"
+                valid_value = "http://example.com" if name.endswith("_url") else "rhubarb"
             elif p['type'] == 'boolean':
                 valid_value = not initial_config[name]
             elif p['type'] == "array" and p['items']['type'] == 'string':
@@ -634,7 +631,7 @@ class ClusterConfigTest(RedpandaTest):
                         f"Config set failed ({k}) {actual}!={expect}")
                     mismatch.append((k, actual, expect))
 
-            assert len(mismatch) == 0, mismatch
+            assert not mismatch, mismatch
 
         check_status(properties_require_restart)
         check_values()
@@ -670,7 +667,7 @@ class ClusterConfigTest(RedpandaTest):
             return None, None
 
         assert m is not None, f"Config version not found: {import_stdout}"
-        version = int(m.group(1))
+        version = int(m[1])
         return version, import_stdout
 
     def _export_import_modify_one(self, before: str, after: str, all=False):
@@ -839,9 +836,7 @@ class ClusterConfigTest(RedpandaTest):
         else:
             # Apart from the one we set, all the other properties should be tunables
             for key in conf.keys():
-                if key == 'superusers' or key == 'cluster_id':
-                    continue
-                else:
+                if key not in ['superusers', 'cluster_id']:
                     property_schema = schema_properties[key]
                     is_tunable = property_schema['visibility'] == 'tunable'
                     if not is_tunable:

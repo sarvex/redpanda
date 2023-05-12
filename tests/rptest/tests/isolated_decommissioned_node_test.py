@@ -65,17 +65,17 @@ class IsolatedDecommissionedNodeTest(PreallocNodesTest):
         num_consumed = 0
         prev_rec = bytes("0", 'UTF-8')
 
+        max_consume_records = 10
+        timeout = 10
         while num_consumed != self.max_records and retries_count < max_retries:
-            max_consume_records = 10
-            timeout = 10
             records = consumer.consume(max_consume_records, timeout)
 
             if len(records) == 0:
                 retries_count += 1
                 time.sleep(3)
 
+            retries_count = 0
             for record in records:
-                retries_count = 0
                 assert prev_rec == record.key(), f"{prev_rec}, {record.key()}"
                 prev_rec = bytes(str(int(prev_rec) + 1), 'UTF-8')
 

@@ -29,7 +29,7 @@ def on_delivery(err: Optional[Any], msg: Message) -> None:
         raise KafkaException(err)
 
 
-PAYLOAD_1KB = ''.join(choice(ascii_uppercase) for i in range(1024))
+PAYLOAD_1KB = ''.join(choice(ascii_uppercase) for _ in range(1024))
 
 
 class TxAbortSnapshotTest(RedpandaTest):
@@ -78,32 +78,32 @@ class TxAbortSnapshotTest(RedpandaTest):
         p.flush()
 
     def find_indexes(self, topic: str) -> dict[str, str]:
-        idxes = dict()
+        idxes = {}
         for node in self.redpanda.nodes:
             idxes[node.account.hostname] = []
             cmd = f"find {RedpandaService.DATA_DIR}"
             out_iter = node.account.ssh_capture(cmd)
             for line in out_iter:
-                m = re.match(
+                if m := re.match(
                     f"{RedpandaService.DATA_DIR}/kafka/{topic}/\\d+_\\d+/(abort.idx.\\d+.\\d+)",
-                    line)
-                if m:
-                    idxes[node.account.hostname].append(m.group(1))
+                    line,
+                ):
+                    idxes[node.account.hostname].append(m[1])
         return idxes
 
     def find_segments(self, topic: str) -> dict[str, list[str]]:
-        segments = dict()
+        segments = {}
         for node in self.redpanda.nodes:
             segments[node.account.hostname] = []
             cmd = f"find {RedpandaService.DATA_DIR}"
             out_iter = node.account.ssh_capture(cmd)
             for line in out_iter:
-                m = re.match(
+                if m := re.match(
                     f"{RedpandaService.DATA_DIR}/kafka/{topic}/\\d+_\\d+/(.+).log",
-                    line)
-                if m:
+                    line,
+                ):
                     self.logger.info(f"{node.account.hostname} {line}")
-                    segments[node.account.hostname].append(m.group(1))
+                    segments[node.account.hostname].append(m[1])
         return segments
 
     @cluster(num_nodes=3, log_allow_list=RESTART_LOG_ALLOW_LIST)

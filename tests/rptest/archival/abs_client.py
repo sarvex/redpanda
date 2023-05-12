@@ -12,8 +12,10 @@ from typing import Iterator, Optional
 
 def build_connection_string(proto: str, endpoint: Optional[str],
                             storage_account: str, key: str) -> str:
-    assert proto in ["http", "https"
-                     ], f"Invalid protocol supplied to ABS client: {proto}"
+    assert proto in {
+        "http",
+        "https",
+    }, f"Invalid protocol supplied to ABS client: {proto}"
 
     parts = [
         f"DefaultEndpointsProtocol={proto}", f"AccountName={storage_account}",
@@ -36,11 +38,7 @@ class ABSClient:
                  endpoint: Optional[str] = None):
         self.logger = logger
 
-        if endpoint is None:
-            proto = "https"
-        else:
-            proto = "http"
-
+        proto = "https" if endpoint is None else "http"
         self.conn_str = build_connection_string(proto, endpoint,
                                                 storage_account, shared_key)
 

@@ -140,7 +140,7 @@ class S3Client:
         # out the keyspace, then run using a fixed number of workers.  Worker
         # count has to be modest to avoid hitting a lot of AWS SlowDown responses.
         max_workers = 4 if parallel else 1
-        hash_prefixes = list(f"{i:02x}" for i in range(0, 256))
+        hash_prefixes = [f"{i:02x}" for i in range(0, 256)]
         prefixes = hash_prefixes if parallel else [""]
 
         def empty_bucket_prefix(prefix):
@@ -166,7 +166,7 @@ class S3Client:
                 for obj_batch in deletion_batches():
                     # Materialize a list so that we can re-use it in logging after using
                     # it in the deletion op
-                    key_list = list(o.key for o in obj_batch)
+                    key_list = [o.key for o in obj_batch]
 
                     try:
                         # GCS does not support bulk delete operation through S3 complaint clients

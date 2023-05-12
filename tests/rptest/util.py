@@ -155,7 +155,7 @@ def wait_until_segments(redpanda,
             f'wait_until_segments: '
             f'segment count: {list(segments_count(redpanda, topic, partition_idx))}'
         )
-        return all([p >= count for p in topic_partitions])
+        return all(p >= count for p in topic_partitions)
 
     wait_until(done,
                timeout_sec=timeout_sec,
@@ -261,7 +261,7 @@ def wait_for_local_storage_truncate(redpanda,
         threshold = target_bytes + 4096
 
         # We expect to have measured size on at least one node, or this isn't meaningful
-        assert len(sizes) > 0
+        assert sizes
 
         return all(s <= threshold for s in sizes)
 

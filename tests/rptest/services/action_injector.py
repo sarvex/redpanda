@@ -86,7 +86,7 @@ class DisruptiveAction:
         if not self.nodes_for_action:
             self.nodes_for_action, self.recovered_nodes = self.recovered_nodes, self.nodes_for_action
             self.node_cycle_complete = False
-        node = random.choice([n for n in self.nodes_for_action])
+        node = random.choice(list(self.nodes_for_action))
         self.nodes_for_action.remove(node)
         return node
 
@@ -132,8 +132,7 @@ class ProcessKill(DisruptiveAction):
         return len(self.affected_nodes) >= self.config.max_affected_nodes
 
     def do_action(self):
-        node = self.target_node()
-        if node:
+        if node := self.target_node():
             self.redpanda.logger.info(
                 f'executing action on {node.account.hostname}')
             self.failure_injector.inject_failure(
@@ -146,7 +145,7 @@ class ProcessKill(DisruptiveAction):
             self.redpanda.remove_from_started_nodes(node)
             return node
         else:
-            self.redpanda.logger.warn(f'no usable node')
+            self.redpanda.logger.warn('no usable node')
             return None
 
     def do_reverse_action(self):

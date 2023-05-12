@@ -40,9 +40,7 @@ class KafProducer(BackgroundThreadService):
                     self._output_line_count += 1
                     self.logger.debug(line.rstrip())
         except RemoteCommandError:
-            if self._stopping.is_set():
-                pass
-            else:
+            if not self._stopping.is_set():
                 raise
 
     @property
@@ -56,9 +54,7 @@ class KafProducer(BackgroundThreadService):
                 node.account.signal(self._pid, 9, allow_fail=True)
             node.account.kill_process("kaf", clean_shutdown=False)
         except RemoteCommandError as e:
-            if b"No such process" in e.msg:
-                pass
-            else:
+            if b"No such process" not in e.msg:
                 raise
 
     def clean_node(self, nodes):

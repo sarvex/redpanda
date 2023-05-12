@@ -232,7 +232,7 @@ class CreateSITopicsTest(RedpandaTest):
                              si_settings=SISettings(test_context))
 
     def _to_bool(self, x: str) -> bool:
-        return True if x == "true" else False
+        return x == "true"
 
     def _from_bool(self, x: bool) -> str:
         return "true" if x else "false"
@@ -514,7 +514,7 @@ class CreateTopicUpgradeTest(RedpandaTest):
         bytes = local_retention * 3
         msg_size = 131072
         msg_count = bytes // msg_size
-        for n in range(0, msg_count):
+        for _ in range(0, msg_count):
             self.rpk.produce(topic_name, "key", "b" * msg_size)
 
         wait_for_local_storage_truncate(self.redpanda,
@@ -682,6 +682,7 @@ class CreateTopicUpgradeTest(RedpandaTest):
             assert conf["retention.local.target.ms"][1] == "DEFAULT_CONFIG"
             assert conf["redpanda.remote.delete"][0] == "false"
 
+        segment_bytes = 1000000
         # After upgrade, newly created topics should have remote.delete
         # enabled by default, and interpret assignments to retention properties
         # literally (no mapping of retention -> retention.local)
@@ -689,7 +690,6 @@ class CreateTopicUpgradeTest(RedpandaTest):
              enable_si) in [("test-topic-post-upgrade-nosi", False),
                             ("test-topic-post-upgrade-si", True)]:
 
-            segment_bytes = 1000000
             local_retention = segment_bytes * 2
             retention_bytes = segment_bytes * 10
             create_config = {
@@ -737,13 +737,14 @@ class CreateTopicUpgradeTest(RedpandaTest):
                                      expect_s3_deletion: bool):
         self.logger.debug(f"Deleting {topic_name} and checking S3 result")
 
-        before_objects = set(
+        before_objects = {
             o.key
             for o in self.cloud_storage_client.list_objects(self._s3_bucket)
-            if topic_name in o.key)
+            if topic_name in o.key
+        }
 
         # Test is meaningless if there were no objects to start with
-        assert len(before_objects) > 0
+        assert before_objects
 
         self.rpk.delete_topic(topic_name)
 
@@ -759,10 +760,11 @@ class CreateTopicUpgradeTest(RedpandaTest):
             # some small delay.
             sleep(10)
 
-        after_objects = set(
+        after_objects = {
             o.key
             for o in self.cloud_storage_client.list_objects(self._s3_bucket)
-            if topic_name in o.key)
+            if topic_name in o.key
+        }
         deleted_objects = before_objects - after_objects
         if expect_s3_deletion:
             assert deleted_objects

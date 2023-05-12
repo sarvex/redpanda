@@ -39,9 +39,9 @@ class ConsumerGroupTest(RedpandaTest):
             },
             **kwargs)
 
-    def make_consumer_properties(base_properties, instance_id=None):
+    def make_consumer_properties(self, instance_id=None):
         properties = {}
-        properties.update(base_properties)
+        properties |= self
         if instance_id:
             properties['group.instance.id'] = instance_id
         return properties
@@ -96,11 +96,11 @@ class ConsumerGroupTest(RedpandaTest):
         wait_until(group_is_ready, 60, 1)
         return consumers
 
-    def consumed_at_least(consumers, count):
-        return all([len(c._messages) > count for c in consumers])
+    def consumed_at_least(self, count):
+        return all(len(c._messages) > count for c in consumers)
 
-    def group_consumed_at_least(consumers, count):
-        return sum([len(c._messages) for c in consumers]) >= count
+    def group_consumed_at_least(self, count):
+        return sum(len(c._messages) for c in consumers) >= count
 
     def validate_group_state(self, group, expected_state, static_members):
         rpk = RpkTool(self.redpanda)
@@ -182,11 +182,11 @@ class ConsumerGroupTest(RedpandaTest):
                                           offsets[tp])
 
             assert len(groups) == 1 and group in groups
-            assert all([
+            assert all(
                 f"{p.topic}/{p.partition}" in offsets
                 and offsets[f"{p.topic}/{p.partition}"] == p.current_offset
                 for p in gd.partitions
-            ])
+            )
 
     @cluster(num_nodes=6)
     def test_mixed_consumers_join(self):
@@ -195,12 +195,14 @@ class ConsumerGroupTest(RedpandaTest):
         """
         self.create_topic(20)
         group = 'test-gr-1'
-        consumers = []
-        consumers.append(
-            self.create_consumer(topic=self.topic_spec.name,
-                                 group=group,
-                                 instance_name="static-consumer",
-                                 instance_id="panda-instance"))
+        consumers = [
+            self.create_consumer(
+                topic=self.topic_spec.name,
+                group=group,
+                instance_name="static-consumer",
+                instance_id="panda-instance",
+            )
+        ]
         consumers.append(
             self.create_consumer(topic=self.topic_spec.name,
                                  group=group,

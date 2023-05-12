@@ -32,12 +32,7 @@ class KgoVerifierService(Service):
                  debug_logs, trace_logs):
         self.use_custom_node = custom_node is not None
 
-        # We should pass num_nodes to allocate for our service in BackgroundThreadService,
-        # but if user allocate node by themself, BackgroundThreadService should not allocate any nodes
-        nodes_for_allocate = 1
-        if self.use_custom_node:
-            nodes_for_allocate = 0
-
+        nodes_for_allocate = 0 if self.use_custom_node else 1
         super(KgoVerifierService, self).__init__(context,
                                                  num_nodes=nodes_for_allocate)
 
@@ -66,7 +61,7 @@ class KgoVerifierService(Service):
 
     def _release_port(self):
         for node in self.nodes:
-            port_map = getattr(node, "kgo_verifier_ports", dict())
+            port_map = getattr(node, "kgo_verifier_ports", {})
             if self.who_am_i() in port_map:
                 del port_map[self.who_am_i()]
 
@@ -117,7 +112,7 @@ class KgoVerifierService(Service):
             return
 
         self._redpanda.logger.info(f"{self.__class__.__name__}.stop")
-        self.logger.debug("Killing pid %s" % {self._pid})
+        self.logger.debug(f"Killing pid {{self._pid}}")
         try:
             node.account.signal(self._pid, 9, allow_fail=False)
         except RemoteCommandError as e:
@@ -149,7 +144,8 @@ class KgoVerifierService(Service):
             except Exception as e:
                 last_error = e
                 self._redpanda.logger.warn(
-                    f"{self.who_am_i()} remote call failed, {e}")
+                    f"{self.who_am_i()} remote call failed, {last_error}"
+                )
         if last_error:
             raise last_error
 
@@ -649,22 +645,22 @@ class KgoVerifierProducer(KgoVerifierService):
         cmd = f"{TESTS_DIR}/kgo-verifier --brokers {self._redpanda.brokers()} --topic {self._topic} --msg_size {self._msg_size} --produce_msgs {self._msg_count} --rand_read_msgs 0 --seq_read=0 --client-name {self.who_am_i()}"
 
         if self._batch_max_bytes is not None:
-            cmd = cmd + f' --batch_max_bytes {self._batch_max_bytes}'
+            cmd = f'{cmd} --batch_max_bytes {self._batch_max_bytes}'
 
         if self._fake_timestamp_ms is not None:
-            cmd = cmd + f' --fake-timestamp-ms {self._fake_timestamp_ms}'
+            cmd = f'{cmd} --fake-timestamp-ms {self._fake_timestamp_ms}'
 
         if self._use_transactions:
-            cmd = cmd + f' --use-transactions'
+            cmd = f'{cmd} --use-transactions'
 
             if self._msgs_per_transaction is not None:
-                cmd = cmd + f' --msgs-per-transaction {self._msgs_per_transaction}'
+                cmd = f'{cmd} --msgs-per-transaction {self._msgs_per_transaction}'
 
             if self._transaction_abort_rate is not None:
-                cmd = cmd + f' --transaction-abort-rate {self._transaction_abort_rate}'
+                cmd = f'{cmd} --transaction-abort-rate {self._transaction_abort_rate}'
 
         if self._rate_limit_bps is not None:
-            cmd = cmd + f' --produce-throughput-bps {self._rate_limit_bps}'
+            cmd = f'{cmd} --produce-throughput-bps {self._rate_limit_bps}'
 
         if self._key_set_cardinality is not None:
             cmd += f" --key-set-cardinality {self._key_set_cardinality}"

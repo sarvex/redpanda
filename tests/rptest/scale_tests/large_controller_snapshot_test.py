@@ -58,7 +58,7 @@ class LargeControllerSnapshotTest(RedpandaTest):
         * cluster is able to stabilize (rebalancing on node addition finishes)
         """
 
-        seed_nodes = self.redpanda.nodes[0:3]
+        seed_nodes = self.redpanda.nodes[:3]
         joiner_node = self.redpanda.nodes[3]
 
         self.redpanda.start(nodes=seed_nodes, omit_seeds_on_idx_one=False)
@@ -114,7 +114,7 @@ class LargeControllerSnapshotTest(RedpandaTest):
             executor.map(create_users, user_names)
 
         # wait until everything is snapshotted
-        self.logger.info(f"waiting until all commands are snapshotted...")
+        self.logger.info("waiting until all commands are snapshotted...")
 
         controller_max_offset = max(
             admin.get_controller_status(n)['commited_index']
@@ -126,7 +126,7 @@ class LargeControllerSnapshotTest(RedpandaTest):
                 node=n, prev_start_offset=(controller_max_offset - 1))
 
         # add a node to the cluster
-        self.logger.info(f"adding a node to the cluster...")
+        self.logger.info("adding a node to the cluster...")
 
         # explicit clean step is needed because we are starting the node manually and not
         # using redpanda.start()
@@ -138,7 +138,7 @@ class LargeControllerSnapshotTest(RedpandaTest):
 
         # reboot the cluster to test that the cluster stabilizes after rebooting with high
         # partition count and a large controller snapshot
-        self.logger.info(f"rebooting the cluster...")
+        self.logger.info("rebooting the cluster...")
 
         with concurrent.futures.ThreadPoolExecutor(
                 max_workers=len(self.redpanda.nodes)) as executor:
@@ -163,8 +163,7 @@ class LargeControllerSnapshotTest(RedpandaTest):
             assert actual == n_users + 1, f"unexpected number of users {actual}"
 
         # wait until rebalance on node addition is finished
-        self.logger.info(
-            f"waiting until partitions are rebalanced to the new node...")
+        self.logger.info("waiting until partitions are rebalanced to the new node...")
 
         def rebalance_finished():
             in_progress = admin.list_reconfigurations(node=seed_nodes[0])

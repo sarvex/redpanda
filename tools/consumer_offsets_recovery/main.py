@@ -30,11 +30,7 @@ def read_config(path):
     cfg = Properties()
     with open(path, 'rb') as f:
         cfg.load(f)
-    cfg_dict = {}
-    for k, v in cfg.items():
-        cfg_dict[k] = v.data
-
-    return cfg_dict
+    return {k: v.data for k, v in cfg.items()}
 
 
 def seek_to_file(path, cfg, dry_run):
@@ -54,7 +50,7 @@ def seek_to_file(path, cfg, dry_run):
             if l == "":
                 continue
 
-            topic, partition, offset = tuple([p.strip() for p in l.split(',')])
+            topic, partition, offset = tuple(p.strip() for p in l.split(','))
             logger.debug(
                 f"group: {group} partition: {topic}/{partition} offset: {offset}"
             )

@@ -61,7 +61,7 @@ class ClusterViewTest(EndToEndTest):
                         return False
                     if len(view["brokers"]) != 3:
                         return False
-                    if last == None:
+                    if last is None:
                         last = view
                         ids = set(
                             map(lambda broker: broker["node_id"],

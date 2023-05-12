@@ -26,9 +26,11 @@ class PartitionStateAPItest(RedpandaTest):
             leaders = list(
                 filter(lambda r: r["raft_state"]["is_elected_leader"],
                        s["replicas"]))
-            assert (has_leader
-                    and len(leaders) == 1) or (not has_leader
-                                               and len(leaders) == 0), leaders
+            assert (
+                (has_leader and len(leaders) == 1)
+                or not has_leader
+                and not leaders
+            ), leaders
             if has_leader:
                 # Verify the leader reports followers
                 leader = leaders[0]["raft_state"]
@@ -52,7 +54,7 @@ class PartitionStateAPItest(RedpandaTest):
                 all_leaders.append(leaders[0]['raft_state']['node_id'])
         if no_leader:
             # No node reports a leader
-            return len(all_leaders) == 0
+            return not all_leaders
         # Check all nodes report the leader and there is only one unique leader
         return len(all_leaders) == len(nodes) and len(set(all_leaders)) == 1
 

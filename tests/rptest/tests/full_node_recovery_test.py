@@ -105,7 +105,7 @@ class FullNodeRecoveryTest(EndToEndTest):
                                labels['partition']), under_replicated))
             self.redpanda.logger.info(
                 f"under replicated partitions: {list(under_replicated)}")
-            return len(under_replicated) == 0
+            return not under_replicated
 
         self.run_validation(min_records=20000,
                             enable_idempotence=False,

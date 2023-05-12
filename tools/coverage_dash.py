@@ -49,8 +49,7 @@ def get_profraw_files(test_dir):
                              check=True)
 
     results = results.stdout.strip().split("\n")
-    by_test = create_profraw_files_dict(results)
-    return by_test
+    return create_profraw_files_dict(results)
 
 
 def gen_coverage(test_dir, profraw_files, rp_binary, ignore_regex):
@@ -112,11 +111,10 @@ def check_compat_tests(test_dir):
             filter(lambda test: kclient in test["test_id"],
                    report_json["results"]))
 
-        num_pass = 0
         total = len(kclient_tests)
-        for duck_test in kclient_tests:
-            num_pass += duck_test["test_status"] == "PASS"
-
+        num_pass = sum(
+            duck_test["test_status"] == "PASS" for duck_test in kclient_tests
+        )
         compat_results[kclient] = [num_pass, total]
 
     return compat_results
@@ -194,7 +192,7 @@ tr:nth-child(even) {
   </tr>
         """
 
-    html_template += f"""
+    html_template += """
 </table>
 <hr>
 <h3>Compatibility Results per Kafka Client</h3>

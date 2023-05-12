@@ -66,10 +66,9 @@ class ConnectionLimitsTest(RedpandaTest):
             c.stop()
             c.wait()
 
-        assert any([
-            m.evaluate([(REJECTED_METRIC, lambda a, b: b > a)])
-            for m in metrics
-        ])
+        assert any(
+            m.evaluate([(REJECTED_METRIC, lambda a, b: b > a)]) for m in metrics
+        )
 
     @cluster(num_nodes=2)
     def test_null(self):
@@ -91,14 +90,13 @@ class ConnectionLimitsTest(RedpandaTest):
                                msg_count=1,
                                quiet=True,
                                produce_timeout=5)
-        for n in range(0, 100):
+        for _ in range(0, 100):
             producer.start()
             producer.wait()
 
-        assert all([
-            m.evaluate([(REJECTED_METRIC, lambda a, b: b == a)])
-            for m in metrics
-        ])
+        assert all(
+            m.evaluate([(REJECTED_METRIC, lambda a, b: b == a)]) for m in metrics
+        )
 
     @cluster(num_nodes=3)
     def test_overrides(self):
@@ -139,19 +137,19 @@ class ConnectionLimitsTest(RedpandaTest):
                 f"{producer_a_addr}:0",
             ]})
 
-        self.logger.info(f"Trying producer_a, should be blocked")
+        self.logger.info("Trying producer_a, should be blocked")
         with expect_exception(Exception,
                               lambda e: 'timeout' in str(e).lower()):
             producer_a.start()
             producer_a.wait()
 
-        self.logger.info(f"Tearing down producer_a")
+        self.logger.info("Tearing down producer_a")
         with expect_exception(Exception,
                               lambda e: 'timeout' in str(e).lower()):
             producer_a.stop()
         producer_a.free()
 
-        self.logger.info(f"Trying producer_b, should be OK")
+        self.logger.info("Trying producer_b, should be OK")
         producer_b.start()
         producer_b.wait()
         producer_b.free()

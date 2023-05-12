@@ -26,9 +26,7 @@ class RedpandaBinaryTest(Test):
     @cluster(num_nodes=1, check_allowed_error_logs=False)
     def test_version(self):
         version_cmd = f"{self.redpanda.find_binary('redpanda')} --version"
-        version_lines = [
-            l for l in self.redpanda.nodes[0].account.ssh_capture(version_cmd)
-        ]
+        version_lines = list(self.redpanda.nodes[0].account.ssh_capture(version_cmd))
         assert len(version_lines) == 1, version_lines
         version_regex_str = "v\\d+\\.\\d+\\.\\d+.*"  # E.g. "v22.1.1-rc1-1373-g77f868..."
         version_re = re.compile(version_regex_str)

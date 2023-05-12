@@ -60,7 +60,7 @@ class RpkToolTest(RedpandaTest):
         key = 'key'
         h_key = 'h_key'
         h_value = 'h_value'
-        headers = [h_key + ':' + h_value]
+        headers = [f'{h_key}:{h_value}']
 
         self._rpk.create_topic(topic)
         self._rpk.produce(topic, key, message, headers)
@@ -70,10 +70,10 @@ class RpkToolTest(RedpandaTest):
 
         def cond():
             return c.messages is not None \
-                and len(c.messages) == 1 \
-                and c.messages[0]['value'] == message \
-                and c.messages[0]['key'] == key \
-                and c.messages[0]['headers'] == [
+                    and len(c.messages) == 1 \
+                    and c.messages[0]['value'] == message \
+                    and c.messages[0]['key'] == key \
+                    and c.messages[0]['headers'] == [
                     {'key': h_key, 'value': h_value},
                 ]
 
@@ -89,7 +89,7 @@ class RpkToolTest(RedpandaTest):
         key = 'key'
         h_key = 'h_key'
         h_value = 'h_value'
-        headers = [h_key + ':' + h_value]
+        headers = [f'{h_key}:{h_value}']
 
         self._rpk.create_topic(topic)
 
@@ -101,9 +101,9 @@ class RpkToolTest(RedpandaTest):
                 raise c.error
             self._rpk.produce(topic, key, message, headers)
             return c.messages \
-                and c.messages[0]['value'] == message \
-                and c.messages[0]['key'] == key \
-                and c.messages[0]['headers'] == [
+                    and c.messages[0]['value'] == message \
+                    and c.messages[0]['key'] == key \
+                    and c.messages[0]['headers'] == [
                     {'key': h_key, 'value': h_value},
                 ]
 
@@ -119,7 +119,7 @@ class RpkToolTest(RedpandaTest):
         key = 'key'
         h_key = 'h_key'
         h_value = 'h_value'
-        headers = [h_key + ':' + h_value]
+        headers = [f'{h_key}:{h_value}']
 
         self._rpk.create_topic(topic)
 
@@ -131,9 +131,9 @@ class RpkToolTest(RedpandaTest):
                 raise c.error
             self._rpk.produce(topic, key, message, headers)
             return c.messages \
-                and c.messages[0]['value'] == message \
-                and c.messages[0]['key'] == key \
-                and c.messages[0]['headers'] == [
+                    and c.messages[0]['value'] == message \
+                    and c.messages[0]['key'] == key \
+                    and c.messages[0]['headers'] == [
                     {'key': h_key, 'value': h_value},
                 ]
 
@@ -149,7 +149,7 @@ class RpkToolTest(RedpandaTest):
         n = random.randint(10, 100)
         msgs = {}
         for i in range(n):
-            msgs['key-' + str(i)] = 'message-' + str(i)
+            msgs[f'key-{str(i)}'] = f'message-{str(i)}'
 
         self._rpk.create_topic(topic)
 
@@ -190,7 +190,7 @@ class RpkToolTest(RedpandaTest):
         n = random.randint(10, 30)
         msgs = {}
         for i in range(n):
-            msgs['key-' + str(i)] = 'message-' + str(i)
+            msgs[f'key-{str(i)}'] = f'message-{str(i)}'
 
         part = random.randint(0, n_parts - 1)
         # Produce messages to a random partition

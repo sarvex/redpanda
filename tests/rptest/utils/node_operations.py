@@ -61,14 +61,17 @@ def generate_random_workload(available_nodes):
             add(idx)
             yield NodeOperation(OperationType.ADD, idx,
                                 random.choice([True, False]))
-        elif len(decommissioned_nodes) == 0:
+        elif not decommissioned_nodes:
             idx = random.choice(active_nodes)
             remove(idx)
             yield NodeOperation(OperationType.DECOMMISSION, idx,
                                 random.choice([True, False]))
         else:
             op = random.choice(op_types)
-            if op == OperationType.DECOMMISSION or op == OperationType.DE_RECOMMISSION:
+            if op in [
+                OperationType.DECOMMISSION,
+                OperationType.DE_RECOMMISSION,
+            ]:
                 idx = random.choice(active_nodes)
                 if op == OperationType.DECOMMISSION:
                     remove(idx)
@@ -144,21 +147,13 @@ class NodeDecommissionWaiter():
             self.logger.debug(f"Unable to query {node_to_query}",
                               exc_info=True)
             return False
-        for b in brokers:
-            if b['node_id'] == self.node_id:
-                return False
-        return True
+        return all(b['node_id'] != self.node_id for b in brokers)
 
     def _collect_partitions_bytes_left(self, status):
         if 'partitions' not in status:
             return None
 
-        total_left = 0
-
-        for p in status['partitions']:
-            total_left += p['bytes_left_to_move']
-
-        return total_left
+        return sum(p['bytes_left_to_move'] for p in status['partitions'])
 
     def wait_for_removal(self):
         self.last_update = time.time()
@@ -169,13 +164,12 @@ class NodeDecommissionWaiter():
                     self.node_id, self._not_decommissioned_node())
             except requests.exceptions.HTTPError as e:
                 self.logger.info(
-                    f"unable to get decommission status, HTTP error",
-                    exc_info=True)
+                    "unable to get decommission status, HTTP error", exc_info=True
+                )
                 time.sleep(1)
                 continue
             except Exception as e:
-                self.logger.warn(f"unable to get decommission status",
-                                 exc_info=True)
+                self.logger.warn("unable to get decommission status", exc_info=True)
                 time.sleep(1)
                 continue
 
@@ -193,10 +187,15 @@ class NodeDecommissionWaiter():
             # check if node bytes left changed
             if self.last_replicas_left is None or replicas_left < self.last_replicas_left:
                 self.last_update = time.time()
-            if partitions_bytes_left is not None and partitions_bytes_left > 0:
-                # check if currently moving partitions bytes left changed
-                if self.last_partitions_bytes_left is None or partitions_bytes_left < self.last_partitions_bytes_left:
-                    self.last_update = time.time()
+            if (
+                partitions_bytes_left is not None
+                and partitions_bytes_left > 0
+                and (
+                    self.last_partitions_bytes_left is None
+                    or partitions_bytes_left < self.last_partitions_bytes_left
+                )
+            ):
+                self.last_update = time.time()
 
             self.last_replicas_left = replicas_left
             self.last_partitions_bytes_left = partitions_bytes_left
@@ -273,11 +272,7 @@ class NodeOpsExecutor():
             brokers = self.get_statuses()
 
             self.logger.info(f"broker statuses: {brokers}")
-            for b in brokers:
-                if b['id'] == node_id and b['status'] == status:
-                    return True
-
-            return False
+            return any(b['id'] == node_id and b['status'] == status for b in brokers)
         except Exception as e:
             self.logger.info(f"error querying broker statuses - {e}")
             return False
@@ -289,19 +284,19 @@ class NodeOpsExecutor():
                 f"broker statuses from {self.redpanda.node_id(node_to_query)}: {brokers}"
             )
             ids = map(lambda broker: broker['id'], brokers)
-            return not node_id in ids
+            return node_id not in ids
         except Exception as e:
             self.logger.info(f"error querying broker statuses - {e}")
             return False
 
     def node_removed(self, node_id):
-        node_removed_cnt = 0
-        for n in self.redpanda.started_nodes():
-            if self.is_node_removed(n, node_id):
-                node_removed_cnt += 1
-
+        node_removed_cnt = sum(
+            1
+            for n in self.redpanda.started_nodes()
+            if self.is_node_removed(n, node_id)
+        )
         node_count = len(self.redpanda.started_nodes())
-        majority = int(node_count / 2) + 1
+        majority = node_count // 2 + 1
         self.logger.debug(
             f"node {node_id} removed on {node_removed_cnt} nodes, majority: {majority}"
         )
@@ -464,7 +459,7 @@ class FailureInjectorBackgroundThread():
         self.thread.start()
 
     def stop(self):
-        self.logger.info(f"Stopping failure injector thread")
+        self.logger.info("Stopping failure injector thread")
         self.stop_ev.set()
         self.thread.join()
         assert self.error is None, f"failure injector error, most likely node failed to stop: {self.error}"

@@ -49,11 +49,7 @@ class RedpandaTest(Test):
             # to override constructor to pass an explicit size.  This logic makes
             # it convenient to mix 3 node and 1 node cases in the same class, by
             # just modifying the @cluster node count per test.
-            if test_context.cluster.available().size() >= 3:
-                num_brokers = 3
-            else:
-                num_brokers = 1
-
+            num_brokers = 3 if test_context.cluster.available().size() >= 3 else 1
         self.redpanda = RedpandaService(test_context,
                                         num_brokers,
                                         extra_rp_conf=extra_rp_conf,
@@ -127,7 +123,7 @@ class RedpandaTest(Test):
         k = 0
         v = RedpandaInstaller.HEAD
         versions = [v]
-        while (v[0], v[1]) != initial_version[0:2]:
+        while (v[0], v[1]) != initial_version[:2]:
             k += 1
 
             v = self.redpanda._installer.highest_from_prior_feature_version(v)
@@ -219,8 +215,11 @@ class RedpandaTest(Test):
         while len(versions) != 0:
             current_version = install_next()
 
-            use_maintenance_mode = current_version[0:2] >= (
-                22, 2) if current_version != RedpandaInstaller.HEAD else True
+            use_maintenance_mode = (
+                current_version[:2] >= (22, 2)
+                if current_version != RedpandaInstaller.HEAD
+                else True
+            )
             if not use_maintenance_mode:
                 self.logger.info(
                     f"Upgrading to {current_version}, skipping maintenance mode"
@@ -234,7 +233,7 @@ class RedpandaTest(Test):
                 stop_timeout=90,
                 use_maintenance_mode=use_maintenance_mode)
 
-            if current_version[0:2] == (22, 1):
+            if current_version[:2] == (22, 1):
                 # Special case: the version in which we adopted the __consumer_offsets topic
                 self.logger.info(
                     "Upgraded to 22.1.x, waiting for consumer_offsets...")

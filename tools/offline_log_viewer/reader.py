@@ -94,22 +94,15 @@ class Reader:
 
     def read_optional(self, type_read):
         present = self.read_int8()
-        if present == 0:
-            return None
-        return type_read(self)
+        return None if present == 0 else type_read(self)
 
     def read_kafka_optional_string(self):
         len = self.read_int16()
-        if len == -1:
-            return None
-        return self.stream.read(len).decode('utf-8')
+        return None if len == -1 else self.stream.read(len).decode('utf-8')
 
     def read_vector(self, type_read):
         sz = self.read_int32()
-        ret = []
-        for i in range(0, sz):
-            ret.append(type_read(self))
-        return ret
+        return [type_read(self) for _ in range(0, sz)]
 
     def read_envelope(self, type_read=None, max_version=0):
         header = self.read_bytes(SERDE_ENVELOPE_SIZE)
@@ -119,24 +112,20 @@ class Reader:
                 return {
                     'envelope': envelope
                 } | type_read(self, envelope.version)
-            else:
-                logger.error(
-                    f"can't decode {envelope.version=}, check {type_read=} or {max_version=}"
-                )
-                return {
-                    'error': {
-                        'max_supported_version': max_version,
-                        'envelope': envelope
-                    }
+            logger.error(
+                f"can't decode {envelope.version=}, check {type_read=} or {max_version=}"
+            )
+            return {
+                'error': {
+                    'max_supported_version': max_version,
+                    'envelope': envelope
                 }
+            }
         return envelope
 
     def read_serde_vector(self, type_read):
         sz = self.read_uint32()
-        ret = []
-        for i in range(0, sz):
-            ret.append(type_read(self))
-        return ret
+        return [type_read(self) for _ in range(0, sz)]
 
     def read_tristate(self, type_read):
         state = self.read_int8()

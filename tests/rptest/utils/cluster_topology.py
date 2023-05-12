@@ -156,14 +156,14 @@ class ClusterTopology():
         if region in self.regions:
             rg = self.regions[region]
             if rack is None:
-                return sum([r.nodes for r in rg.racks.values()], [])
+                return sum((r.nodes for r in rg.racks.values()), [])
             elif rack in rg.racks:
                 return rg.racks[rack].nodes
 
         return []
 
     def _ip_address(self, node):
-        res = node.account.ssh_output(f'hostname -i')
+        res = node.account.ssh_output('hostname -i')
         return res.strip().decode('utf-8')
 
     def add_connection_spec(self, spec: TopologyConnectionSpec):
@@ -173,10 +173,8 @@ class ClusterTopology():
         node_overrides = {}
         for n in redpanda.nodes:
             node_tn = self.placement_of(n)
-            override = {}
+            override = {'rack': f"{node_tn.region}.{node_tn.rack}"}
 
-            #TODO: change this part as soon as Redpanda will support hierarchical topology
-            override['rack'] = f"{node_tn.region}.{node_tn.rack}"
             node_overrides[n] = override
 
         redpanda.start(node_config_overrides=node_overrides, **kwargs)

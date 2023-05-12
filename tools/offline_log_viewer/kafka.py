@@ -47,6 +47,4 @@ class KafkaLog:
 
     def batches(self):
         for path in self.ntp.segments:
-            s = Segment(path)
-            for batch in s:
-                yield batch
+            yield from Segment(path)

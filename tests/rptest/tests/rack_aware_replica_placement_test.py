@@ -140,7 +140,7 @@ class RackAwarePlacementTest(RedpandaTest):
             return
 
         topics = []
-        for tix in range(0, num_topics):
+        for _ in range(0, num_topics):
             topic = TopicSpec(partition_count=num_partitions,
                               replication_factor=replication_factor)
             topics.append(topic)

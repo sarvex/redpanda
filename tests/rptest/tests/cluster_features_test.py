@@ -60,7 +60,7 @@ class FeaturesTestBase(RedpandaTest):
     def _get_features_map(self, feature_response=None, node=None):
         if feature_response is None:
             feature_response = self.admin.get_features(node=node)
-        return dict((f['name'], f) for f in feature_response['features'])
+        return {f['name']: f for f in feature_response['features']}
 
     def _assert_default_features(self):
         """
@@ -397,7 +397,7 @@ class FeaturesNodeJoinTest(FeaturesTestBase):
         self.installer.install([old_node], old_version)
 
         # Start first three nodes
-        self.redpanda.start(self.redpanda.nodes[0:-1])
+        self.redpanda.start(self.redpanda.nodes[:-1])
 
         # Explicit clean because it's not included in the default
         # one during start()
@@ -405,7 +405,7 @@ class FeaturesNodeJoinTest(FeaturesTestBase):
 
         initial_version = self.admin.get_features()['cluster_version']
         assert initial_version == self.head_latest_logical_version, \
-            f"Version mismatch: {initial_version} vs {self.head_latest_logical_version}"
+                f"Version mismatch: {initial_version} vs {self.head_latest_logical_version}"
 
         try:
             self.redpanda.start_node(old_node)
@@ -440,7 +440,7 @@ class FeaturesNodeJoinTest(FeaturesTestBase):
         self.logger.info(f"Selected node {old_node.name} to be joiner")
 
         # Start first three nodes
-        self.redpanda.start(self.redpanda.nodes[0:-1])
+        self.redpanda.start(self.redpanda.nodes[:-1])
 
         # Explicit clean because it's not included in the default
         # one during start()
@@ -448,7 +448,7 @@ class FeaturesNodeJoinTest(FeaturesTestBase):
 
         initial_version = self.admin.get_features()['cluster_version']
         assert initial_version == self.head_latest_logical_version, \
-            f"Version mismatch: {initial_version} vs {self.head_latest_logical_version}"
+                f"Version mismatch: {initial_version} vs {self.head_latest_logical_version}"
 
         try:
             self.logger.info(

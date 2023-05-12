@@ -115,7 +115,7 @@ class KgoRepeaterService(Service):
             cmd += f" -rate-limit-bps={self.rate_limit_bps_per_node}"
 
         if self.use_transactions:
-            cmd += f" -use-transactions"
+            cmd += " -use-transactions"
 
             if self.transaction_abort_rate is not None:
                 cmd += f" -transaction-abort-rate={self.transaction_abort_rate}"

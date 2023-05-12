@@ -98,9 +98,7 @@ def read_topic_configuration_assignment_serde(rdr: Reader):
 
 def read_inc_update_op_serde(rdr: Reader):
     v = rdr.read_serde_enum()
-    if -1 < v < 3:
-        return ['none', 'set', 'remove'][v]
-    return 'error'
+    return ['none', 'set', 'remove'][v] if -1 < v < 3 else 'error'
 
 
 def read_property_update_serde(rdr: Reader, type_reader):
@@ -192,8 +190,7 @@ def read_create_partitions_serde(rdr: Reader):
 
 
 def decode_topic_command_serde(k_rdr: Reader, rdr: Reader):
-    cmd = {}
-    cmd['type'] = rdr.read_int8()
+    cmd = {'type': rdr.read_int8()}
     if cmd['type'] == 0:
         cmd['type_string'] = 'create_topic'
         cmd['key'] = {}
@@ -249,8 +246,7 @@ def decode_topic_command_serde(k_rdr: Reader, rdr: Reader):
 
 
 def decode_topic_command_adl(k_rdr: Reader, rdr: Reader):
-    cmd = {}
-    cmd['type'] = rdr.read_int8()
+    cmd = {'type': rdr.read_int8()}
     if cmd['type'] == 0:
         cmd['type_string'] = 'create_topic'
         version = Reader(BytesIO(rdr.peek(4))).read_int32()
@@ -313,12 +309,11 @@ def decode_topic_command(record):
     k_rdr = Reader(BytesIO(record.key))
     either_ald_or_serde = rdr.peek_int8()
     assert either_ald_or_serde >= -1, "unsupported serialization format"
-    if either_ald_or_serde == -1:
-        # serde encoding flag, consume it and proceed
-        rdr.skip(1)
-        return decode_topic_command_serde(k_rdr, rdr)
-    else:
+    if either_ald_or_serde != -1:
         return decode_topic_command_adl(k_rdr, rdr)
+    # serde encoding flag, consume it and proceed
+    rdr.skip(1)
+    return decode_topic_command_serde(k_rdr, rdr)
 
 
 def decode_config(k_rdr: Reader, rdr: Reader):
@@ -329,7 +324,7 @@ def decode_user_command_serde(k_rdr: Reader, rdr: Reader):
     cmd = {'type': rdr.read_int8()}
     cmd['str_type'] = decode_user_cmd_type(cmd['type'])
 
-    if cmd['type'] == 5 or cmd['type'] == 7:
+    if cmd['type'] in [5, 7]:
         cmd['user'] = k_rdr.read_string()
         cmd['cred'] = rdr.read_envelope(
             lambda rdr, _: {
@@ -348,11 +343,10 @@ def decode_user_command_serde(k_rdr: Reader, rdr: Reader):
 
 
 def decode_user_command_adl(k_rdr: Reader, rdr: Reader):
-    cmd = {}
-    cmd['type'] = rdr.read_int8()
+    cmd = {'type': rdr.read_int8()}
     cmd['str_type'] = decode_user_cmd_type(cmd['type'])
 
-    if cmd['type'] == 5 or cmd['type'] == 7:
+    if cmd['type'] in [5, 7]:
         cmd['user'] = k_rdr.read_string()
         cmd['cred'] = {}
         cmd['cred']['version'] = rdr.read_int8()
@@ -410,9 +404,7 @@ def read_acl_binding_serde(k_rdr: Reader):
 
 
 def decode_serialized_pattern_type(v):
-    if 0 <= v <= 2:
-        return ['literal', 'prefixed', 'match'][v]
-    return 'error'
+    return ['literal', 'prefixed', 'match'][v] if 0 <= v <= 2 else 'error'
 
 
 def read_acl_binding_filter_serde(k_rdr: Reader):
@@ -462,8 +454,7 @@ def read_acl_binding_filter_serde(k_rdr: Reader):
 
 
 def decode_acl_command_serde(k_rdr: Reader, rdr: Reader):
-    cmd = {}
-    cmd['type'] = rdr.read_int8()
+    cmd = {'type': rdr.read_int8()}
     # skip one byte, unused field
     rdr.read_int8()
     cmd['str_type'] = decode_acls_cmd_type(cmd['type'])
@@ -481,8 +472,7 @@ def decode_acl_command_serde(k_rdr: Reader, rdr: Reader):
 
 
 def decode_acl_command_adl(k_rdr: Reader, rdr: Reader):
-    cmd = {}
-    cmd['type'] = rdr.read_int8()
+    cmd = {'type': rdr.read_int8()}
     cmd['str_type'] = decode_acls_cmd_type(cmd['type'])
     if cmd['type'] == 8:
         cmd['version'] = k_rdr.read_int8()
@@ -500,8 +490,7 @@ def read_config_kv(reader):
 
 
 def decode_config_command_serde(k_rdr: Reader, rdr: Reader):
-    cmd = {}
-    cmd['type'] = rdr.read_int8()
+    cmd = {'type': rdr.read_int8()}
     if cmd['type'] == 0:
         cmd['type_name'] = 'config_delta'
         cmd['version'] = k_rdr.read_int64()
@@ -535,8 +524,7 @@ def decode_config_command_serde(k_rdr: Reader, rdr: Reader):
 
 
 def decode_config_command_adl(k_rdr: Reader, rdr: Reader):
-    cmd = {}
-    cmd['type'] = rdr.read_int8()
+    cmd = {'type': rdr.read_int8()}
     if cmd['type'] == 0:
         cmd['type_name'] = 'config_delta'
         cmd['version'] = k_rdr.read_int64()
@@ -673,10 +661,9 @@ def decode_bootstrap_cluster_cmd_data(rdr: Reader, version):
 
 
 def decode_cluster_bootstrap_command(k_rdr, rdr):
-    cmd = {}
     rdr.skip(1)
     k_rdr.read_int8()
-    cmd['type'] = rdr.read_int8()
+    cmd = {'type': rdr.read_int8()}
     if cmd['type'] == 0:
         cmd['type_name'] = 'bootstrap_cluster'
         cmd |= rdr.read_envelope(decode_bootstrap_cluster_cmd_data,
@@ -688,22 +675,23 @@ def decode_cluster_bootstrap_command(k_rdr, rdr):
 def decode_adl_or_serde(k_rdr: Reader, rdr: Reader, adl_fn, serde_fn):
     either_adl_or_serde = rdr.peek_int8()
     assert either_adl_or_serde >= -1, "unsupported serialization format"
-    if either_adl_or_serde == -1:
-        # serde encoding flag, consume it and proceed
-        rdr.skip(1)
-        return serde_fn(k_rdr, rdr)
-    else:
+    if either_adl_or_serde != -1:
         return adl_fn(k_rdr, rdr)
+    # serde encoding flag, consume it and proceed
+    rdr.skip(1)
+    return serde_fn(k_rdr, rdr)
 
 
 def decode_record(batch, record, bin_dump: bool):
-    ret = {}
     header = batch.header
-    ret['type'] = batch.type.name
-    ret['epoch'] = header.first_ts
-    ret['offset'] = header.base_offset + record.offset_delta
-    ret['ts'] = datetime.datetime.utcfromtimestamp(
-        header.first_ts / 1000.0).strftime('%Y-%m-%d %H:%M:%S')
+    ret = {
+        'type': batch.type.name,
+        'epoch': header.first_ts,
+        'offset': header.base_offset + record.offset_delta,
+        'ts': datetime.datetime.utcfromtimestamp(
+            header.first_ts / 1000.0
+        ).strftime('%Y-%m-%d %H:%M:%S'),
+    }
     if bin_dump:
         ret['key_dump'] = record.key.__str__()
         ret['value_dump'] = record.value.__str__()

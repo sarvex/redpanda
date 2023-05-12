@@ -46,7 +46,7 @@ class TransactionsTest(RedpandaTest):
         self.admin = Admin(self.redpanda)
 
     def on_delivery(self, err, msg):
-        assert err == None, msg
+        assert err is None, msg
 
     def generate_data(self, topic, num_records):
         producer = ck.Producer({
@@ -107,7 +107,7 @@ class TransactionsTest(RedpandaTest):
             producer.begin_transaction()
 
             for record in records:
-                assert (record.error() == None)
+                assert record.error() is None
                 consumed_from_input_topic.append(record)
                 producer.produce(self.output_t.name,
                                  record.value(),
@@ -173,7 +173,7 @@ class TransactionsTest(RedpandaTest):
         producer.begin_transaction()
 
         for record in records:
-            assert (record.error() == None)
+            assert record.error() is None
             producer.produce(self.output_t.name, record.value(), record.key())
 
         offsets = consumer1.position(consumer1.assignment())
@@ -233,7 +233,7 @@ class TransactionsTest(RedpandaTest):
         producer.begin_transaction()
 
         for record in records:
-            assert (record.error() == None)
+            assert record.error() is None
             producer.produce(self.output_t.name, record.value(), record.key())
 
         offsets = consumer1.position(consumer1.assignment())
@@ -287,8 +287,7 @@ class TransactionsTest(RedpandaTest):
                 producer.init_transactions()
                 break
             except ck.cimpl.KafkaException as e:
-                self.redpanda.logger.debug(f"error on init_transactions",
-                                           exc_info=True)
+                self.redpanda.logger.debug("error on init_transactions", exc_info=True)
                 kafka_error = e.args[0]
                 assert kafka_error.code() in [
                     ck.cimpl.KafkaError.NOT_COORDINATOR,
@@ -338,7 +337,7 @@ class TransactionsTest(RedpandaTest):
                                  partition=partition,
                                  on_delivery=self.on_delivery)
             producer.flush()
-            count = count + records_per_add
+            count += records_per_add
 
         def graceful_transfer():
             # Issue a graceful leadership transfer.
@@ -356,7 +355,7 @@ class TransactionsTest(RedpandaTest):
                     namespace="kafka",
                     topic=self.input_t.name,
                     partition=partition)
-                return (new_leader != -1) and (new_leader != old_leader)
+                return new_leader not in [-1, old_leader]
 
             wait_until(leader_is_changed,
                        timeout_sec=30,
@@ -389,7 +388,7 @@ class TransactionsTest(RedpandaTest):
             assert len(
                 records
             ) == count, f"Not all records consumed, expected {count}"
-            keys = set([int(r.key()) for r in records])
+            keys = {int(r.key()) for r in records}
             assert all(i in keys
                        for i in range(0, count)), f"Missing records {keys}"
         finally:
@@ -442,7 +441,7 @@ class TransactionsTest(RedpandaTest):
             def leader_is_changed():
                 new_leader = self.admin.get_partition_leader(
                     namespace="kafka_internal", topic="tx", partition="0")
-                return (new_leader != -1) and (new_leader != old_leader)
+                return new_leader not in [-1, old_leader]
 
             wait_until(leader_is_changed,
                        timeout_sec=30,
@@ -481,7 +480,7 @@ class TransactionsTest(RedpandaTest):
             assert len(
                 records
             ) == count, f"Not all records consumed, expected {count}"
-            keys = set([int(r.key()) for r in records])
+            keys = {int(r.key()) for r in records}
             assert all(i in keys
                        for i in range(0, count)), f"Missing records {keys}"
         finally:
@@ -702,7 +701,7 @@ class UpgradeTransactionTest(RedpandaTest):
         producer.init_transactions()
 
         def on_del(err, msg):
-            assert err == None
+            assert err is None
 
         max_tx = 100
         for i in range(max_tx):
@@ -743,7 +742,7 @@ class UpgradeWithMixedVeersionTransactionTest(RedpandaTest):
         self.installer = self.redpanda._installer
 
     def on_delivery(self, err, msg):
-        assert err == None, msg
+        assert err is None, msg
 
     def check_consume(self, max_records):
         topic_name = self.topics[0].name
@@ -758,10 +757,9 @@ class UpgradeWithMixedVeersionTransactionTest(RedpandaTest):
         num_consumed = 0
         prev_rec = bytes("0", 'UTF-8')
 
+        max_consume_records = 10
         while num_consumed != max_records:
-            max_consume_records = 10
-            timeout = 10
-            records = consumer.consume(max_consume_records, timeout)
+            records = consumer.consume(max_consume_records, 10)
 
             for record in records:
                 assert prev_rec == record.key(), f"{prev_rec}, {record.key()}"
@@ -873,7 +871,7 @@ class UpgradeTransactionManagerMultiPartition(RedpandaTest):
         self.producer_cur_index = 0
 
     def on_delivery(self, err, msg):
-        assert err == None, msg
+        assert err is None, msg
 
     def check_consume(self, max_records):
         topic_name = self.topics[0].name
@@ -888,10 +886,9 @@ class UpgradeTransactionManagerMultiPartition(RedpandaTest):
         num_consumed = 0
         prev_rec = bytes("0", 'UTF-8')
 
+        max_consume_records = 10
         while num_consumed != max_records:
-            max_consume_records = 10
-            timeout = 10
-            records = consumer.consume(max_consume_records, timeout)
+            records = consumer.consume(max_consume_records, 10)
 
             for record in records:
                 assert prev_rec == record.key(), f"{prev_rec}, {record.key()}"

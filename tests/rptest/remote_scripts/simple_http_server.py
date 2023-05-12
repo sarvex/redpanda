@@ -31,9 +31,7 @@ class PrintingHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
 
         # print request content
-        req = {}
-        req['method'] = self.command
-        req['path'] = self.path
+        req = {'method': self.command, 'path': self.path}
         if 'Content-Length' in self.headers:
             req['content_length'] = int(self.headers.get('Content-Length'))
             req['body'] = self.rfile.read(

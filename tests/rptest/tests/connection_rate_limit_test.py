@@ -63,7 +63,7 @@ class ConnectionRateLimitTest(PreallocNodesTest):
         consumer.free()
 
     def read_data(self, consumers_count):
-        consumers = dict()
+        consumers = {}
         for i in range(consumers_count):
             consumers[i] = self.start_consumer()
 
@@ -100,9 +100,9 @@ class ConnectionRateLimitTest(PreallocNodesTest):
         return finish - start
 
     def get_read_time(self, consumers_count):
-        deltas = list()
+        deltas = []
 
-        for i in range(20):
+        for _ in range(20):
             connection_time = self.read_data(consumers_count)
             deltas.append(connection_time)
 

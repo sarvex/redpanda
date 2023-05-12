@@ -151,10 +151,10 @@ class InternalTopicProtectionTest(RedpandaTest):
     @parametrize(client_type="rpk")
     @parametrize(client_type="kafka_tools")
     def kafka_nodelete_topics_test(self, client_type):
-        if client_type == "rpk":
-            client = self.rpk
-        elif client_type == "kafka_tools":
+        if client_type == "kafka_tools":
             client = self.kafka_tools
+        elif client_type == "rpk":
+            client = self.rpk
         else:
             assert False, "Unknown client type"
 
@@ -174,9 +174,8 @@ class InternalTopicProtectionTest(RedpandaTest):
             assert False, "Call to delete topic must fail"
         except Exception:
             self.redpanda.logger.info(
-                f"we were expecting delete_topic to fail", exc_info=True)
-            pass
-
+                "we were expecting delete_topic to fail", exc_info=True
+            )
         # allow time for any erronous deletion to be propagated
         time.sleep(10)
         assert test_topic in client.list_topics()

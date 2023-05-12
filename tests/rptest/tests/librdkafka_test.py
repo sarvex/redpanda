@@ -20,40 +20,28 @@ from rptest.utils.mode_checks import skip_debug_mode
 
 
 def tests_to_run():
-    ignored_tests = set([
+    ignored_tests = {
         14,
         51,
         67,
         90,
         99,
         103,
-        # timequery issue
         52,
-        # consumer offsets coordinator and tx_coordinator reported to early
         61,
-        # librdkafka interceptor test, not important for Redpanda
         66,
-        # compaction test - lack of low water mark support
         77,
-        # create topic test - topic is being created despite invalid config
         81,
-        # fetch max bytes test
         82,
-        # additional topic configuration reported by Redpanda
         92,
-        # autocreate topics test - security
         109,
-        # cooperative rebalance issue
         113,
-        # ACL test - TODO: add security config to the test
         115,
         119,
-        # tests that are flaky in CI
         30,
         84,
-        # using mocked cluster, not relevant
         105,
-    ])
+    }
     return [t for t in range(120) if t not in ignored_tests]
 
 

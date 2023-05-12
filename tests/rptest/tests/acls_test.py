@@ -59,9 +59,7 @@ class AccessControlListTest(RedpandaTest):
         return
 
     def authz_enabled(self, use_sasl, enable_authz) -> bool:
-        if enable_authz is not None:
-            return enable_authz
-        return use_sasl
+        return enable_authz if enable_authz is not None else use_sasl
 
     def authn_enabled(self) -> bool:
         return self.security.sasl_enabled(
@@ -313,15 +311,13 @@ class AccessControlListTest(RedpandaTest):
             return not self.authz_enabled(use_sasl, enable_authz)
 
         def should_pass_w_authn_user(use_tls: bool, use_sasl: bool,
-                                     enable_authz: Optional[bool],
-                                     client_auth: bool) -> bool:
+                                         enable_authz: Optional[bool],
+                                         client_auth: bool) -> bool:
             if should_pass_w_base_user(use_sasl, enable_authz):
                 return True
             if self.security.mtls_identity_enabled():
                 return use_tls and client_auth
-            if self.security.sasl_enabled():
-                return True
-            return False
+            return bool(self.security.sasl_enabled())
 
         pass_w_base_user = should_pass_w_base_user(use_sasl, enable_authz)
 
@@ -415,13 +411,7 @@ class AccessControlListTest(RedpandaTest):
         # is sasl because the system will validate against SASL/SCRAM creds already stored
         # on the brokers. However, when authn_method is mtls_identiy, check permissions
         # should fail because no principal mapping rule is set yet.
-        if authn_method == 'sasl':
-            self.check_permissions(
-                pass_w_base_user=False,
-                pass_w_cluster_user=True,
-                pass_w_super_user=True,
-                err_msg='check_permissions failed in intermediate state')
-        elif authn_method == 'mtls_identity':
+        if authn_method == 'mtls_identity':
             try:
                 self.check_permissions(pass_w_base_user=False,
                                        pass_w_cluster_user=True,
@@ -435,6 +425,12 @@ class AccessControlListTest(RedpandaTest):
                 # should fail.
                 pass
 
+        elif authn_method == 'sasl':
+            self.check_permissions(
+                pass_w_base_user=False,
+                pass_w_cluster_user=True,
+                pass_w_super_user=True,
+                err_msg='check_permissions failed in intermediate state')
         # Change cluster wide configs for kafka_enable_authorization and
         # kafka_mtls_principal_mapping_rules via the admin api.
         # Do not expect a restart.
@@ -460,7 +456,7 @@ class AccessControlListTest(RedpandaTest):
             assert new_cfg['kafka_mtls_principal_mapping_rules'][
                 1] in cluster_cfg['kafka_mtls_principal_mapping_rules']
         else:
-            assert cluster_cfg['kafka_mtls_principal_mapping_rules'] == None
+            assert cluster_cfg['kafka_mtls_principal_mapping_rules'] is None
 
         self.check_permissions(
             pass_w_base_user=False,

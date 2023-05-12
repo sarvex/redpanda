@@ -45,10 +45,10 @@ READ_REPLICA_LOG_ALLOW_LIST = [
 
 def get_hwm_per_partition(cluster: RedpandaService, topic_name,
                           partition_count):
-    id_to_hwm = dict()
     rpk = RpkTool(cluster)
-    for prt in rpk.describe_topic(topic_name):
-        id_to_hwm[prt.id] = prt.high_watermark
+    id_to_hwm = {
+        prt.id: prt.high_watermark for prt in rpk.describe_topic(topic_name)
+    }
     if len(id_to_hwm) != partition_count:
         return False, None
     return True, id_to_hwm
@@ -184,9 +184,10 @@ class TestReadReplicaService(EndToEndTest):
             wait_until(lambda: self.producer.num_acked > num_messages,
                            timeout_sec=30,
                            err_msg="Producer failed to produce messages for %ds." %\
-                           30)
-            self.logger.info("Stopping producer after writing up to offsets %s" %\
-                            str(self.producer.last_acked_offsets))
+                               30)
+            self.logger.info(
+                f"Stopping producer after writing up to offsets {str(self.producer.last_acked_offsets)}"
+            )
             self.producer.stop()
 
         self.start_second_cluster()
@@ -276,7 +277,7 @@ class TestReadReplicaService(EndToEndTest):
         objects_before = set(
             self.redpanda.cloud_storage_client.list_objects(
                 self.si_settings.cloud_storage_bucket))
-        assert len(objects_before) > 0
+        assert objects_before
         second_rpk.delete_topic(self.topic_name)
         objects_after = set(
             self.redpanda.cloud_storage_client.list_objects(
@@ -327,8 +328,7 @@ class TestReadReplicaService(EndToEndTest):
 
         post_usage = self._bucket_usage()
         self.logger.info(f"post_usage {post_usage}")
-        delta = self._bucket_delta(pre_usage, post_usage)
-        if delta:
+        if delta := self._bucket_delta(pre_usage, post_usage):
             m = f"S3 Bucket usage changed during read replica test: {delta}"
             assert False, m
 
@@ -383,7 +383,7 @@ class ReadReplicasUpgradeTest(EndToEndTest):
         wait_until(lambda: self.producer.num_acked > 1000,
                        timeout_sec=30,
                        err_msg="Producer failed to produce messages for %ds." %\
-                       30)
+                           30)
         self.producer.stop()
 
         self.second_cluster = RedpandaService(self.test_context,
@@ -404,7 +404,7 @@ class ReadReplicasUpgradeTest(EndToEndTest):
                                      backoff_sec=1)
             if len(hwms) != partition_count:
                 return False, None
-            if any([hwms[p] == 0 for p in range(partition_count)]):
+            if any(hwms[p] == 0 for p in range(partition_count)):
                 return False, None
             return True, hwms
 
@@ -455,7 +455,7 @@ class ReadReplicasUpgradeTest(EndToEndTest):
         wait_until(lambda: self.producer.num_acked > 1000,
                        timeout_sec=30,
                        err_msg="Producer failed to produce messages for %ds." %\
-                       30)
+                           30)
         self.producer.stop()
         wait_until(clusters_report_identical_hwms,
                    timeout_sec=30,

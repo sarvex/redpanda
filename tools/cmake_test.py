@@ -84,27 +84,25 @@ class BacktraceCapture(threading.Thread):
 
         accumulator = None
         while True:
-            line = self.process.stderr.readline()
-            if line:
-                sys.stderr.write(line)
-                if accumulator is not None and self.BACKTRACE_BODY.search(
-                        line):
+            if not (line := self.process.stderr.readline()):
+                break
+
+            sys.stderr.write(line)
+            if accumulator is not None:
+                if self.BACKTRACE_BODY.search(line):
                     # Mid-backtrace
                     accumulator.append(line)
-                elif accumulator is not None:
+                else:
                     # End of backtrace
                     if accumulator:
                         blocks.append(accumulator)
                     accumulator = None
 
-                # A start of backtrace line, which may also have been an end of backtrace line above
-                if accumulator is None and self.BACKTRACE_START.search(line):
-                    accumulator = []
-                    if self.BACKTRACE_BODY.search(line):
-                        accumulator.append(line)
-            else:
-                break
-
+            # A start of backtrace line, which may also have been an end of backtrace line above
+            if accumulator is None and self.BACKTRACE_START.search(line):
+                accumulator = []
+                if self.BACKTRACE_BODY.search(line):
+                    accumulator.append(line)
         if accumulator:
             blocks.append(accumulator)
 
@@ -133,7 +131,7 @@ class BacktraceCapture(threading.Thread):
         # Workstation: find our build directory by searching back from binary
         path_parts = self.binary.split("/")
         try:
-            vbuild = "/".join(path_parts[0:path_parts.index("vbuild") + 3])
+            vbuild = "/".join(path_parts[:path_parts.index("vbuild") + 3])
         except (ValueError, IndexError):
             sys.stderr.write(
                 f"Could not find vbuild in binary path {self.binary}\n")
@@ -144,12 +142,11 @@ class BacktraceCapture(threading.Thread):
                 "v_deps_build/seastar-prefix/src/seastar/scripts/seastar-addr2line"
             )
 
-            if not os.path.exists(location):
-                sys.stderr.write(
-                    f"seastar-addr2line not found at {location}\n")
-                return
-            else:
+            if os.path.exists(location):
                 return location
+            sys.stderr.write(
+                f"seastar-addr2line not found at {location}\n")
+            return
 
     def _addr2lines(self, backtrace):
         if not backtrace:
@@ -187,11 +184,7 @@ class TestRunner():
         os.makedirs(self.root, exist_ok=True)
 
         # make args a list
-        if len(args) == 0:
-            args = []
-        else:
-            args = list(map(str, args))
-
+        args = [] if not args else list(map(str, args))
         # If in CI, run with trace because we need the evidence if something
         # fails.  Locally, use INFO to improve runtime: the developer can
         # selectively re-run failing tests with more logging if needed.
@@ -224,7 +217,7 @@ class TestRunner():
                 )
 
             if "--" in args:
-                args = args + unit_args
+                args += unit_args
             else:
                 args = args + ["--"] + unit_args
         elif "rpbench" in binary:
@@ -236,8 +229,9 @@ class TestRunner():
         return ''.join(random.choice(string.ascii_letters) for _ in range(x))
 
     def _gen_testdir(self):
-        return tempfile.mkdtemp(suffix=self._gen_alphanum(),
-                                prefix="%s/test." % self.root)
+        return tempfile.mkdtemp(
+            suffix=self._gen_alphanum(), prefix=f"{self.root}/test."
+        )
 
     @property
     def ci(self):
@@ -275,11 +269,11 @@ class TestRunner():
         if "rpcgenerator_cycling_rpunit" in self.binary:
             env["UBSAN_OPTIONS"] = "halt_on_error=0:abort_on_error=0"
 
-        logger.info("Test dir: %s" % test_dir)
+        logger.info(f"Test dir: {test_dir}")
         for f in self.copy_files:
-            logger.debug("Copying input file: %s" % f)
+            logger.debug(f"Copying input file: {f}")
             (src, dst) = f.split("=") if "=" in f else (f, f)
-            shutil.copy(src, "%s/%s" % (test_dir, os.path.basename(dst)))
+            shutil.copy(src, f"{test_dir}/{os.path.basename(dst)}")
 
         cmd = Template(
             "(cd $test_dir; $prepare_command; BOOST_TEST_LOG_LEVEL=\"test_suite\""
@@ -385,7 +379,7 @@ def main():
         options.copy_file = []
 
     logger.setLevel(getattr(logging, options.log.upper()))
-    logger.info("%s *args=%s" % (options, program_options))
+    logger.info(f"{options} *args={program_options}")
 
     runner = TestRunner(options.pre, options.post, options.binary,
                         options.repeat, options.copy_file, *program_options)

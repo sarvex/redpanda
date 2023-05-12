@@ -31,10 +31,10 @@ class ReplicationFactorChangeTest(RedpandaTest):
         self.topic_name = self.topics[0].name
 
     def check_rf(self, new_rf):
-        for partition in self._rpk.describe_topic(self.topic_name):
-            if len(partition.replicas) != new_rf:
-                return False
-        return True
+        return all(
+            len(partition.replicas) == new_rf
+            for partition in self._rpk.describe_topic(self.topic_name)
+        )
 
     @cluster(num_nodes=4)
     def simple_test(self):

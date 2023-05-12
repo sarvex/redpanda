@@ -88,7 +88,7 @@ class SerdeClient:
 
         self.serde_config = {'use.deprecated.format': False}
         if skip_known_types is not None:
-            self.serde_config.update({'skip.known.types': skip_known_types})
+            self.serde_config['skip.known.types'] = skip_known_types
 
         self.security_config = security_config
 
@@ -206,10 +206,7 @@ def main(args):
     logger = logging.getLogger("SerdeClient")
     logger.addHandler(handler)
 
-    security_dict = None
-    if args.security is not None:
-        security_dict = json.loads(args.security)
-
+    security_dict = None if args.security is None else json.loads(args.security)
     p = SerdeClient(args.bootstrap_servers,
                     args.schema_registry,
                     SchemaType[args.protocol],

@@ -84,13 +84,7 @@ class ScaleParameters:
             f"Nodes have {self.node_cpus} cores, {node_memory}MB memory, {node_disk_free / (1024 * 1024)}MB free disk"
         )
 
-        # On large nodes, reserve half of shard 0 to minimize interference
-        # between data and control plane, as control plane messages become
-        # very large.
-        shard0_reserve = None
-        if self.node_cpus >= 8:
-            shard0_reserve = PARTITIONS_PER_SHARD / 2
-
+        shard0_reserve = PARTITIONS_PER_SHARD / 2 if self.node_cpus >= 8 else None
         # Reserve a few slots for internal partitions, do not be
         # super specific about how many because we may add some in
         # future for e.g. audit logging.
@@ -131,7 +125,7 @@ class ScaleParameters:
         # rules to kick in promptly.
         # TODO: redpanda should figure this out automatically by
         #       rolling segments pre-emptively if low on disk space
-        self.segment_size = int(self.retention_bytes / 4)
+        self.segment_size = self.retention_bytes // 4
 
         # Tiered storage will have a warmup period where it will set the
         # segment size and local retention lower to ensure a large number of
@@ -387,7 +381,7 @@ class ManyPartitionsTest(PreallocNodesTest):
                 continue
 
             assert len(partitions) == p_per_topic
-            node_leader_counts.update(p.leader for p in partitions)
+            node_leader_counts |= (p.leader for p in partitions)
 
         for n, c in node_leader_counts.items():
             self.logger.info(f"node {n} leaderships: {c}")
@@ -405,13 +399,7 @@ class ManyPartitionsTest(PreallocNodesTest):
         error = stddev / (
             (len(topic_names) * p_per_topic) / len(self.redpanda.nodes))
 
-        # FIXME: this isn't the same check the leader balancer itself does, but it
-        # should suffice to check the leader balancer is progressing.
-        threshold = 0.1
-        if (p_per_topic * len(topic_names)) < 5000:
-            # Low scale systems have bumpier stats
-            threshold = 0.25
-
+        threshold = 0.25 if (p_per_topic * len(topic_names)) < 5000 else 0.1
         balanced = error < threshold
         self.logger.info(
             f"leadership balanced={balanced} (stddev: {stddev}, error {error})"
@@ -448,11 +436,7 @@ class ManyPartitionsTest(PreallocNodesTest):
 
     def _repeater_worker_count(self, scale):
         workers = 32 * scale.node_cpus
-        if self.redpanda.dedicated_nodes:
-            # 768 workers on a 24 core node has been seen to work well.
-            return workers
-        else:
-            return min(workers, 4)
+        return workers if self.redpanda.dedicated_nodes else min(workers, 4)
 
     def setUp(self):
         # defer redpanda startup to the test, it might want to tweak
@@ -461,13 +445,14 @@ class ManyPartitionsTest(PreallocNodesTest):
 
     def _get_fd_counts(self):
         with concurrent.futures.ThreadPoolExecutor(
-                max_workers=len(self.redpanda.nodes)) as executor:
+                    max_workers=len(self.redpanda.nodes)) as executor:
 
             return list(
                 executor.map(
-                    lambda n: tuple(
-                        [n, sum(1 for _ in self.redpanda.lsof_node(n))]),
-                    self.redpanda.nodes))
+                    lambda n: (n, sum(1 for _ in self.redpanda.lsof_node(n))),
+                    self.redpanda.nodes,
+                )
+            )
 
     def _concurrent_restart(self):
         """
@@ -478,15 +463,16 @@ class ManyPartitionsTest(PreallocNodesTest):
         # on an idle system it is helpful to do a concurrent global restart rather than
         # waiting for each node one by one.
         with concurrent.futures.ThreadPoolExecutor(
-                max_workers=len(self.redpanda.nodes)) as executor:
-            futs = []
-            for node in self.redpanda.nodes:
-                futs.append(
-                    executor.submit(self.redpanda.restart_nodes,
-                                    nodes=[node],
-                                    start_timeout=self.EXPECT_START_TIME,
-                                    stop_timeout=STOP_TIMEOUT))
-
+                    max_workers=len(self.redpanda.nodes)) as executor:
+            futs = [
+                executor.submit(
+                    self.redpanda.restart_nodes,
+                    nodes=[node],
+                    start_timeout=self.EXPECT_START_TIME,
+                    stop_timeout=STOP_TIMEOUT,
+                )
+                for node in self.redpanda.nodes
+            ]
             for f in futs:
                 # Raise on error
                 f.result()
@@ -559,7 +545,7 @@ class ManyPartitionsTest(PreallocNodesTest):
                 lambda: self._all_elections_done(topic_names, n_partitions),
                 timeout_sec=60,
                 backoff_sec=5)
-            self.logger.info(f"Post-restart elections done.")
+            self.logger.info("Post-restart elections done.")
 
             inter_restart_check()
 
@@ -751,13 +737,7 @@ class ManyPartitionsTest(PreallocNodesTest):
         self.logger.info(
             "Write+randread stress test complete, verifying sequentially")
 
-        # When tiered storage is enabled, don't consume the entire topic, as
-        # that could entail millions of segments from the cloud. At least
-        # ensure we read enough to download a few segments per partition.
-        max_msgs = None
-        if scale.tiered_storage_enabled:
-            max_msgs = 50 * scale.partition_limit
-
+        max_msgs = 50 * scale.partition_limit if scale.tiered_storage_enabled else None
         seq_consumer = KgoVerifierSeqConsumer(
             self.test_context,
             self.redpanda,
@@ -771,7 +751,7 @@ class ManyPartitionsTest(PreallocNodesTest):
         assert seq_consumer.consumer_status.validator.invalid_reads == 0
         if not scale.tiered_storage_enabled:
             assert seq_consumer.consumer_status.validator.valid_reads >= fast_producer.produce_status.acked + msg_count_per_topic, \
-                f"{seq_consumer.consumer_status.validator.valid_reads} >= {fast_producer.produce_status.acked} + {msg_count_per_topic}"
+                    f"{seq_consumer.consumer_status.validator.valid_reads} >= {fast_producer.produce_status.acked} + {msg_count_per_topic}"
 
         self.free_preallocated_nodes()
 
@@ -982,11 +962,11 @@ class ManyPartitionsTest(PreallocNodesTest):
                                   replicas=replication_factor,
                                   config=config)
 
-        self.logger.info(f"Awaiting elections...")
+        self.logger.info("Awaiting elections...")
         wait_until(lambda: self._all_elections_done(topic_names, n_partitions),
                    timeout_sec=60,
                    backoff_sec=5)
-        self.logger.info(f"Initial elections done.")
+        self.logger.info("Initial elections done.")
 
         for node_name, file_count in self._get_fd_counts():
             self.logger.info(
@@ -1022,14 +1002,14 @@ class ManyPartitionsTest(PreallocNodesTest):
         if scale.tiered_storage_enabled:
             max_buffered_records = 1
         with repeater_traffic(context=self._ctx,
-                              redpanda=self.redpanda,
-                              nodes=self.preallocated_nodes,
-                              topic=topic_names[0],
-                              msg_size=repeater_msg_size,
-                              workers=self._repeater_worker_count(scale),
-                              max_buffered_records=max_buffered_records,
-                              cleanup=lambda: self.free_preallocated_nodes(),
-                              **repeater_kwargs) as repeater:
+                                  redpanda=self.redpanda,
+                                  nodes=self.preallocated_nodes,
+                                  topic=topic_names[0],
+                                  msg_size=repeater_msg_size,
+                                  workers=self._repeater_worker_count(scale),
+                                  max_buffered_records=max_buffered_records,
+                                  cleanup=lambda: self.free_preallocated_nodes(),
+                                  **repeater_kwargs) as repeater:
             repeater_await_bytes = 1E9
             if scale.tiered_storage_enabled or not self.redpanda.dedicated_nodes:
                 # Be much more lenient when tiered storage is enabled, since
@@ -1041,7 +1021,7 @@ class ManyPartitionsTest(PreallocNodesTest):
                 # Explicit wait for consumer group, because we might have e.g.
                 # just restarted the cluster, and don't want to include that
                 # delay in our throughput-driven timeout expectations
-                self.logger.info(f"Checking repeater group is ready...")
+                self.logger.info("Checking repeater group is ready...")
                 repeater.await_group_ready()
 
                 t = repeater_await_bytes / scale.expect_bandwidth
@@ -1060,20 +1040,19 @@ class ManyPartitionsTest(PreallocNodesTest):
 
             progress_check()
 
-            self.logger.info(f"Entering single node restart phase")
+            self.logger.info("Entering single node restart phase")
             self._single_node_restart(scale, topic_names, n_partitions)
             progress_check()
 
-            self.logger.info(f"Entering restart stress test phase")
+            self.logger.info("Entering restart stress test phase")
             self._restart_stress(scale, topic_names, n_partitions,
                                  progress_check)
 
-            self.logger.info(
-                f"Post-restarts: checking repeater group is ready...")
+            self.logger.info("Post-restarts: checking repeater group is ready...")
             repeater.await_group_ready()
 
             # Done with restarts, now do a longer traffic soak
-            self.logger.info(f"Entering traffic soak phase")
+            self.logger.info("Entering traffic soak phase")
 
             # Normalize by the max_buffered_records.
             soak_await_bytes = int(100E9 / 64 * max_buffered_records)

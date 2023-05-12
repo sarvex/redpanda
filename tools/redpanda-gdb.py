@@ -123,10 +123,8 @@ class std_vector:
             # For example:
             #   std::__1::__compressed_pair_elem<seastar::shared_object*, 0, false>)
             s = str(end_cap_type)
-            m = re.match("struct ([\w:]+) \*", s)
-            if m:
-                self.end_cap_type = gdb.lookup_type(
-                    end_cap_type_fmt.format(m.group(1) + "*"))
+            if m := re.match("struct ([\w:]+) \*", s):
+                self.end_cap_type = gdb.lookup_type(end_cap_type_fmt.format(f"{m[1]}*"))
             else:
                 raise
 
@@ -215,16 +213,14 @@ class absl_flat_hash_map:
 
 
 def has_enable_lw_shared_from_this(type):
-    for f in type.fields():
-        if f.is_base_class and 'enable_lw_shared_from_this' in f.name:
-            return True
-    return False
+    return any(
+        f.is_base_class and 'enable_lw_shared_from_this' in f.name
+        for f in type.fields()
+    )
 
 
 def remove_prefix(s, prefix):
-    if s.startswith(prefix):
-        return s[len(prefix):]
-    return s
+    return s[len(prefix):] if s.startswith(prefix) else s
 
 
 class seastar_lw_shared_ptr():
@@ -235,11 +231,10 @@ class seastar_lw_shared_ptr():
     def get(self):
         if has_enable_lw_shared_from_this(self.elem_type):
             return self.ref['_p'].cast(self.elem_type.pointer())
-        else:
-            type = gdb.lookup_type(
-                'seastar::shared_ptr_no_esft<%s>' % remove_prefix(
-                    str(self.elem_type.unqualified()), 'class ')).pointer()
-            return self.ref['_p'].cast(type)['_value'].address
+        type = gdb.lookup_type(
+            f"seastar::shared_ptr_no_esft<{remove_prefix(str(self.elem_type.unqualified()), 'class ')}>"
+        ).pointer()
+        return self.ref['_p'].cast(type)['_value'].address
 
 
 class seastar_shared_ptr():
@@ -362,19 +357,13 @@ class histogram:
             expected to return the string to be printed in the second column.
             By default, items are printed verbatim.
         """
-        if counts is None:
-            self._counts = defaultdict(int)
-        else:
-            self._counts = counts
+        self._counts = defaultdict(int) if counts is None else counts
         self._print_indicators = print_indicators
 
         def default_formatter(value):
             return str(value)
 
-        if formatter is None:
-            self._formatter = default_formatter
-        else:
-            self._formatter = formatter
+        self._formatter = default_formatter if formatter is None else formatter
 
     def __len__(self):
         return len(self._counts)
@@ -402,11 +391,7 @@ class histogram:
         counts_sorted = list(reversed(sorted(by_counts.keys())))
         max_count = counts_sorted[0]
 
-        if max_count == 0:
-            count_per_column = 0
-        else:
-            count_per_column = self._column_count / max_count
-
+        count_per_column = 0 if max_count == 0 else self._column_count / max_count
         lines = []
 
         for count in counts_sorted:
@@ -415,14 +400,14 @@ class histogram:
                 indicator = '+' * max(1, int(count * count_per_column))
             else:
                 indicator = ''
-            for item in items:
-                lines.append('{:9d} {} {}'.format(count, self._formatter(item),
-                                                  indicator))
-
+            lines.extend(
+                '{:9d} {} {}'.format(count, self._formatter(item), indicator)
+                for item in items
+            )
         return '\n'.join(lines)
 
     def __repr__(self):
-        return 'histogram({})'.format(self._counts)
+        return f'histogram({self._counts})'
 
     def print_to_console(self):
         gdb.write(str(self) + '\n')
@@ -478,21 +463,20 @@ def get_text_range():
             reactor_backend.reinterpret_cast(vptr_type).dereference())
     except Exception as e:
         gdb.write(
-            "get_text_range(): Falling back to locating .rodata section because lookup to reactor backend to use as known vptr failed: {}\n"
-            .format(e))
+            f"get_text_range(): Falling back to locating .rodata section because lookup to reactor backend to use as known vptr failed: {e}\n"
+        )
         known_vptr = None
 
     sections = gdb.execute('info files', False, True).split('\n')
     for line in sections:
         if known_vptr:
-            if not " is ." in line:
+            if " is ." not in line:
                 continue
             items = line.split()
             start = int(items[0], 16)
             end = int(items[2], 16)
-            if start <= known_vptr and known_vptr <= end:
+            if start <= known_vptr <= end:
                 return start, end
-        # vptrs are in .rodata section
         elif line.endswith("is .rodata"):
             items = line.split()
             text_start = int(items[0], 16)
@@ -616,8 +600,8 @@ class span_checker(object):
         self._page_size = int(
             gdb.parse_and_eval('\'seastar::memory::page_size\''))
         span_list = list(spans())
-        self._start_to_span = dict((s.start, s) for s in span_list)
-        self._starts = list(s.start for s in span_list)
+        self._start_to_span = {s.start: s for s in span_list}
+        self._starts = [s.start for s in span_list]
 
     def spans(self):
         return self._start_to_span.values()
@@ -628,9 +612,7 @@ class span_checker(object):
             return None
         span_start = self._starts[idx - 1]
         s = self._start_to_span[span_start]
-        if span_start + s.page['span_size'] * self._page_size <= ptr:
-            return None
-        return s
+        return None if span_start + s.page['span_size'] * self._page_size <= ptr else s
 
 
 def find_storage_api(shard=None):
@@ -683,7 +665,7 @@ class segment_reader:
         self.filename = self.ref["_filename"]
 
     def __str__(self):
-        return "{}".format(self.filename)
+        return f"{self.filename}"
 
 
 class spill_key_index:
@@ -708,15 +690,13 @@ class segment:
         self.ref = ref
 
     def compacted_index_writer(self):
-        o = std_optional(self.ref["_compaction_index"])
-        if o:
+        if o := std_optional(self.ref["_compaction_index"]):
             impl = std_unique_ptr(o.get()["_impl"]).get()
             name = impl["_name"]
             return spill_key_index(name, impl)
 
     def batch_cache_index(self):
-        o = std_optional(self.ref["_cache"])
-        if o:
+        if o := std_optional(self.ref["_cache"]):
             return absl_btree_map(o.get()["_index"])
 
     def reader(self):
@@ -766,7 +746,7 @@ def get_field_offset(gdb_type, name):
 
 
 def get_base_class_offset(gdb_type, base_class_name):
-    name_pattern = re.escape(base_class_name) + "(<.*>)?$"
+    name_pattern = f"{re.escape(base_class_name)}(<.*>)?$"
     for field in gdb_type.fields():
         if field.is_base_class and re.match(name_pattern,
                                             field.type.strip_typedefs().name):
@@ -871,14 +851,14 @@ class redpanda_memory(gdb.Command):
         storage = find_storage_api()
         kvstore = std_unique_ptr(storage["_kvstore"]).dereference()
         db = absl_flat_hash_map(kvstore["_db"])
-        print(f"# Key value store")
+        print("# Key value store")
         gdb.write("key-value store:\n")
-        gdb.write("      size: {}\n".format(len(db)))
-        gdb.write("  capacity: {}\n".format(db.capacity()))
-        gdb.write("size bytes: {}\n".format(kvstore["_probe"]["cached_bytes"]))
+        gdb.write(f"      size: {len(db)}\n")
+        gdb.write(f"  capacity: {db.capacity()}\n")
+        gdb.write(f'size bytes: {kvstore["_probe"]["cached_bytes"]}\n')
 
     def print_segment_memory(self):
-        print(f"# Log segments")
+        print("# Log segments")
         sizes = []
         capacities = []
         contigs = []
@@ -899,7 +879,7 @@ class redpanda_memory(gdb.Command):
             print(f"Size {size:4} Freq {freq}")
 
     def print_readers_cache_memory(self):
-        print(f"# Readers cache")
+        print("# Readers cache")
         total_readers = 0
         for ntp, log in find_logs():
             readers = len(log.readers_cache().readers)
@@ -1115,15 +1095,15 @@ class redpanda_small_objects(gdb.Command):
             while obj in self._free_in_span or obj in self._free_in_pool:
                 obj = self._next_obj()
 
-            if self._resolve_symbols:
-                addr = gdb.Value(obj).reinterpret_cast(
-                    self._vptr_type).dereference()
-                if addr >= self._text_start and addr <= self._text_end:
-                    return (obj, resolve(addr))
-                else:
-                    return (obj, None)
-            else:
+            if not self._resolve_symbols:
                 return (obj, None)
+            addr = gdb.Value(obj).reinterpret_cast(
+                self._vptr_type).dereference()
+            return (
+                (obj, resolve(addr))
+                if addr >= self._text_start and addr <= self._text_end
+                else (obj, None)
+            )
 
         def __iter__(self):
             return self
@@ -1160,13 +1140,14 @@ class redpanda_small_objects(gdb.Command):
 
     def init_parser(self):
         parser = argparse.ArgumentParser(description="scylla small-objects")
-        parser.add_argument("-o",
-                            "--object-size",
-                            action="store",
-                            type=int,
-                            required=True,
-                            help="Object size, valid sizes are: {}".format(
-                                redpanda_small_objects.get_object_sizes()))
+        parser.add_argument(
+            "-o",
+            "--object-size",
+            action="store",
+            type=int,
+            required=True,
+            help=f"Object size, valid sizes are: {redpanda_small_objects.get_object_sizes()}",
+        )
         parser.add_argument("-p",
                             "--page",
                             action="store",
@@ -1210,16 +1191,14 @@ class redpanda_small_objects(gdb.Command):
         skip = offset - self._last_pos
         if verbose:
             gdb.write(
-                'get_objects(): offset={}, count={}, last_pos={}, skip={}\n'.
-                format(offset, count, self._last_pos, skip))
+                f'get_objects(): offset={offset}, count={count}, last_pos={self._last_pos}, skip={skip}\n'
+            )
 
         for _ in range(skip):
             next(self._iterator)
 
         if count:
-            objects = []
-            for _ in range(count):
-                objects.append(next(self._iterator))
+            objects = [next(self._iterator) for _ in range(count)]
         else:
             objects = list(self._iterator)
 
@@ -1247,24 +1226,22 @@ class redpanda_small_objects(gdb.Command):
             if self._last_object_size != args.object_size:
                 if args.verbose:
                     gdb.write(
-                        "Object size changed ({} -> {}), scanning pool.\n".
-                        format(self._last_object_size, args.object_size))
+                        f"Object size changed ({self._last_object_size} -> {args.object_size}), scanning pool.\n"
+                    )
                 self._num_objects = len(
                     self.get_objects(small_pool, verbose=args.verbose))
                 self._last_object_size = args.object_size
-            gdb.write("number of objects: {}\n"
-                      "page size        : {}\n"
-                      "number of pages  : {}\n".format(
-                          self._num_objects, args.page_size,
-                          int(self._num_objects / args.page_size)))
+            gdb.write(
+                f"number of objects: {self._num_objects}\npage size        : {args.page_size}\nnumber of pages  : {int(self._num_objects / args.page_size)}\n"
+            )
             return
 
         if args.random_page:
             if self._last_object_size != args.object_size:
                 if args.verbose:
                     gdb.write(
-                        "Object size changed ({} -> {}), scanning pool.\n".
-                        format(self._last_object_size, args.object_size))
+                        f"Object size changed ({self._last_object_size} -> {args.object_size}), scanning pool.\n"
+                    )
                 self._num_objects = len(
                     self.get_objects(small_pool, verbose=args.verbose))
                 self._last_object_size = args.object_size
@@ -1274,18 +1251,14 @@ class redpanda_small_objects(gdb.Command):
             page = args.page
 
         offset = page * args.page_size
-        gdb.write("page {}: {}-{}\n".format(page, offset,
-                                            offset + args.page_size - 1))
+        gdb.write(f"page {page}: {offset}-{offset + args.page_size - 1}\n")
         for i, (obj, sym) in enumerate(
                 self.get_objects(small_pool,
                                  offset,
                                  args.page_size,
                                  resolve_symbols=True,
                                  verbose=args.verbose)):
-            if sym is None:
-                sym_text = ""
-            else:
-                sym_text = sym
+            sym_text = "" if sym is None else sym
             gdb.write("[{}] 0x{:x} {}\n".format(offset + i, obj, sym_text))
 
 
@@ -1378,7 +1351,7 @@ class redpanda_task_histogram(gdb.Command):
             if not span or span.index != idx or not span.is_small():
                 continue
             pool = span.pool()
-            if int(pool.dereference()['_object_size']) != size and size != 0:
+            if int(pool.dereference()['_object_size']) != size != 0:
                 continue
             scanned_pages += 1
             objsize = size if size != 0 else int(
@@ -1401,8 +1374,7 @@ class redpanda_task_histogram(gdb.Command):
                                                                                   .
                                                                                   count]
         for vptr, count in to_show:
-            sym = resolve(vptr)
-            if sym:
+            if sym := resolve(vptr):
                 gdb.write('%10d: 0x%x %s\n' % (count, vptr, sym))
 
 
@@ -1434,15 +1406,11 @@ class redpanda_task_queues(gdb.Command):
 
     @staticmethod
     def _active(a):
-        if a:
-            return 'A'
-        return ' '
+        return 'A' if a else ' '
 
     @staticmethod
     def _current(c):
-        if c:
-            return '*'
-        return ' '
+        return '*' if c else ' '
 
     def invoke(self, arg, for_tty):
         gdb.write('   {:2} {:32} {:7} {}\n'.format("id", "name", "shares",
@@ -1511,13 +1479,13 @@ class redpanda_smp_queues(gdb.Command):
             return '{:2} -> {:2}'.format(a, b)
 
         h = histogram(formatter=formatter)
-        known_vptrs = dict()
+        known_vptrs = {}
 
         for obj, vptr in find_vptrs():
             obj = int(obj)
             vptr = int(vptr)
 
-            if not vptr in known_vptrs:
+            if vptr not in known_vptrs:
                 name = resolve(
                     vptr,
                     startswith=
@@ -1569,13 +1537,12 @@ class sstring_printer(gdb.printing.PrettyPrinter):
         self.val = val
 
     def to_string(self):
-        if self.val['u']['internal']['size'] >= 0:
-            array = self.val['u']['internal']['str']
-            len = int(self.val['u']['internal']['size'])
-            return ''.join([chr(array[x]) for x in range(len)])
-        else:
+        if self.val['u']['internal']['size'] < 0:
             # TODO: looks broken for external?
             return self.val['u']['external']['str']
+        array = self.val['u']['internal']['str']
+        len = int(self.val['u']['internal']['size'])
+        return ''.join([chr(array[x]) for x in range(len)])
 
     def display_hint(self):
         return 'string'
@@ -1657,12 +1624,11 @@ class ProfNode(TreeNode):
 def collapse_similar(node):
     while node.has_only_one_child():
         child = next(iter(node.children))
-        if node.attributes == child.attributes:
-            node.squash_child()
-            node.tail.append(child.key)
-        else:
+        if node.attributes != child.attributes:
             break
 
+        node.squash_child()
+        node.tail.append(child.key)
     for child in node.children:
         collapse_similar(child)
 
@@ -1763,14 +1729,9 @@ class redpanda_heapprof(gdb.Command):
                 n.size += size
                 n.count += count
                 bt = site['backtrace']['_main']
-                addresses = list(
-                    int(f['addr'])
-                    for f in seastar_static_vector(bt['_frames']))
+                addresses = [int(f['addr']) for f in seastar_static_vector(bt['_frames'])]
                 addresses.pop(0)  # drop memory::get_backtrace()
-                if args.inverted:
-                    seq = reversed(addresses)
-                else:
-                    seq = addresses
+                seq = reversed(addresses) if args.inverted else addresses
                 for addr in seq:
                     n = n.get_or_add(addr)
                     n.size += size
@@ -1794,7 +1755,7 @@ class redpanda_heapprof(gdb.Command):
         if args.flame:
             file_name = 'heapprof.stacks'
             with open(file_name, 'w') as out:
-                trace = list()
+                trace = []
 
                 def print_node(n):
                     if n.key:
@@ -1803,9 +1764,17 @@ class redpanda_heapprof(gdb.Command):
                     for c in n.children:
                         print_node(c)
                     if not n.has_children():
-                        out.write("%s %d\n" % (';'.join(
-                            map(lambda x: '%s' %
-                                (x), map(resolver, trace))), n.size))
+                        out.write(
+                            (
+                                "%s %d\n"
+                                % (
+                                    ';'.join(
+                                        map(lambda x: f'{x}', map(resolver, trace))
+                                    ),
+                                    n.size,
+                                )
+                            )
+                        )
                     if n.key:
                         del trace[-1 - len(n.tail):]
 
@@ -1814,10 +1783,7 @@ class redpanda_heapprof(gdb.Command):
         else:
 
             def node_formatter(n):
-                if n.key is None:
-                    name = "All"
-                else:
-                    name = resolver(n.key)
+                name = "All" if n.key is None else resolver(n.key)
                 return "%s (%d, #%d)\n%s" % (name, n.size, n.count, '\n'.join(
                     map(resolver, n.tail)))
 

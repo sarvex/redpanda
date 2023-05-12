@@ -58,30 +58,30 @@ class ConsumerEventHandler(object):
         self.state = ConsumerState.Started
 
     def handle_offsets_committed(self, event, node, logger):
-        if event["success"]:
-            for offset_commit in event["offsets"]:
-                if offset_commit.get("error", "") != "":
-                    logger.debug("%s: Offset commit failed for: %s" %
-                                 (str(node.account), offset_commit))
-                    continue
+        if not event["success"]:
+            return
+        for offset_commit in event["offsets"]:
+            if offset_commit.get("error", "") != "":
+                logger.debug(f"{str(node.account)}: Offset commit failed for: {offset_commit}")
+                continue
 
-                topic = offset_commit["topic"]
-                partition = offset_commit["partition"]
-                tp = TopicPartition(topic, partition)
-                offset = offset_commit["offset"]
-                assert tp in self.assignment, \
-                    "Committed offsets for partition %s not assigned (current assignment: %s)" % \
-                    (str(tp), str(self.assignment))
-                assert tp in self.position, "No previous position for %s: %s" % (
-                    str(tp), event)
-                assert self.position[tp] >= offset, \
+            topic = offset_commit["topic"]
+            partition = offset_commit["partition"]
+            tp = TopicPartition(topic, partition)
+            offset = offset_commit["offset"]
+            assert (
+                tp in self.assignment
+            ), f"Committed offsets for partition {str(tp)} not assigned (current assignment: {str(self.assignment)})"
+            assert tp in self.position, f"No previous position for {str(tp)}: {event}"
+            assert self.position[tp] >= offset, \
                     "The committed offset %d was greater than the current position %d for partition %s" % \
                     (offset, self.position[tp], str(tp))
-                self.committed[tp] = offset
+            self.committed[tp] = offset
 
     def handle_records_consumed(self, event, logger):
-        assert self.state == ConsumerState.Joined, \
-            "Consumed records should only be received when joined (current state: %s)" % str(self.state)
+        assert (
+            self.state == ConsumerState.Joined
+        ), f"Consumed records should only be received when joined (current state: {str(self.state)})"
 
         for record_batch in event["partitions"]:
             tp = TopicPartition(topic=record_batch["topic"],
@@ -89,20 +89,19 @@ class ConsumerEventHandler(object):
             min_offset = record_batch["minOffset"]
             max_offset = record_batch["maxOffset"]
 
-            assert tp in self.assignment, \
-                "Consumed records for partition %s which is not assigned (current assignment: %s)" % \
-                (str(tp), str(self.assignment))
+            assert (
+                tp in self.assignment
+            ), f"Consumed records for partition {str(tp)} which is not assigned (current assignment: {str(self.assignment)})"
             if tp not in self.position or self.position[tp] == min_offset:
                 self.position[tp] = max_offset + 1
             else:
                 msg = "Consumed from an unexpected offset (%d, %d) for partition %s" % \
-                      (self.position.get(tp), min_offset, str(tp))
+                          (self.position.get(tp), min_offset, str(tp))
                 if self.verify_offsets:
                     raise AssertionError(msg)
-                else:
-                    if tp in self.position:
-                        self.position[tp] = max_offset + 1
-                    logger.warn(msg)
+                if tp in self.position:
+                    self.position[tp] = max_offset + 1
+                logger.warn(msg)
         self.total_consumed += event["count"]
 
     def handle_partitions_revoked(self, event):
@@ -127,9 +126,9 @@ class ConsumerEventHandler(object):
             partition = committed_offset["partition"]
             tp = TopicPartition(topic, partition)
             offset = committed_offset["offset"]
-            assert tp in self.assignment, \
-                "Committed offsets for partition %s not assigned (current assignment: %s)" % \
-                (str(tp), str(self.assignment))
+            assert (
+                tp in self.assignment
+            ), f"Committed offsets for partition {str(tp)} not assigned (current assignment: {str(self.assignment)})"
 
             self.committed[tp] = offset
 
@@ -143,16 +142,10 @@ class ConsumerEventHandler(object):
         return list(self.assignment)
 
     def current_position(self, tp):
-        if tp in self.position:
-            return self.position[tp]
-        else:
-            return None
+        return self.position[tp] if tp in self.position else None
 
     def last_commit(self, tp):
-        if tp in self.committed:
-            return self.committed[tp]
-        else:
-            return None
+        return self.committed[tp] if tp in self.committed else None
 
 
 class VerifiableConsumer(BackgroundThreadService):
@@ -239,16 +232,10 @@ class VerifiableConsumer(BackgroundThreadService):
             self.committed[tp] = offset
 
         def current_position(self, tp):
-            if tp in self.position:
-                return self.position[tp]
-            else:
-                return None
+            return self.position[tp] if tp in self.position else None
 
         def last_commit(self, tp):
-            if tp in self.committed:
-                return self.committed[tp]
-            else:
-                return None
+            return self.committed[tp] if tp in self.committed else None
 
     def __init__(self,
                  context,
@@ -297,8 +284,9 @@ class VerifiableConsumer(BackgroundThreadService):
                     node, self.verify_offsets, idx)
             handler = self.event_handlers[node]
 
-        node.account.ssh("mkdir -p %s" % VerifiableConsumer.PERSISTENT_ROOT,
-                         allow_fail=False)
+        node.account.ssh(
+            f"mkdir -p {VerifiableConsumer.PERSISTENT_ROOT}", allow_fail=False
+        )
 
         # Create and upload log properties
         log_config = self.render('tools_log4j.properties',
@@ -314,7 +302,7 @@ class VerifiableConsumer(BackgroundThreadService):
         # apply group.instance.id to the node for static membership validation
         node.group_instance_id = None
         if self.static_membership:
-            node.group_instance_id = self.group_id + "-instance-" + str(idx)
+            node.group_instance_id = f"{self.group_id}-instance-{str(idx)}"
 
         cmd = self.start_cmd(node)
         self.logger.debug("VerifiableConsumer %d command: %s" % (idx, cmd))
@@ -345,8 +333,7 @@ class VerifiableConsumer(BackgroundThreadService):
                         handler.handle_offsets_fetched(event)
                         self._update_global_committed_fetched(event, state)
                     else:
-                        self.logger.debug("%s: ignoring unknown event: %s" %
-                                          (str(node.account), event))
+                        self.logger.debug(f"{str(node.account)}: ignoring unknown event: {event}")
 
     def _update_global_position(self, consumed_event, state: WorkerState):
         for consumed_partition in consumed_event["partitions"]:
@@ -374,41 +361,35 @@ class VerifiableConsumer(BackgroundThreadService):
 
     def start_cmd(self, node):
         cmd = "java -cp /opt/redpanda-tests/java/e2e-verifiers/target/e2e-verifiers-1.0.jar"
-        cmd += " -Dlog4j.configuration=file:%s" % VerifiableConsumer.LOG4J_CONFIG
+        cmd += f" -Dlog4j.configuration=file:{VerifiableConsumer.LOG4J_CONFIG}"
         cmd += " org.apache.kafka.tools.VerifiableConsumer"
         if self.on_record_consumed:
             cmd += " --verbose"
 
         if node.group_instance_id:
-            cmd += " --group-instance-id %s" % node.group_instance_id
+            cmd += f" --group-instance-id {node.group_instance_id}"
 
         if self.assignment_strategy:
-            cmd += " --assignment-strategy %s" % self.assignment_strategy
+            cmd += f" --assignment-strategy {self.assignment_strategy}"
 
         if self.enable_autocommit:
             cmd += " --enable-autocommit "
 
-        cmd += " --reset-policy %s --group-id %s --topic %s --broker-list %s --session-timeout %s" % \
-               (self.reset_policy, self.group_id, self.topic,
-                self.redpanda.brokers(),
-                self.session_timeout_sec*1000)
+        cmd += f" --reset-policy {self.reset_policy} --group-id {self.group_id} --topic {self.topic} --broker-list {self.redpanda.brokers()} --session-timeout {self.session_timeout_sec * 1000}"
 
         if self.max_messages > 0:
-            cmd += " --max-messages %s" % str(self.max_messages)
+            cmd += f" --max-messages {str(self.max_messages)}"
 
-        cmd += " --consumer.config %s" % VerifiableConsumer.CONFIG_FILE
-        cmd += " 2>> %s | tee -a %s &" % (VerifiableConsumer.STDOUT_CAPTURE,
-                                          VerifiableConsumer.STDOUT_CAPTURE)
+        cmd += f" --consumer.config {VerifiableConsumer.CONFIG_FILE}"
+        cmd += f" 2>> {VerifiableConsumer.STDOUT_CAPTURE} | tee -a {VerifiableConsumer.STDOUT_CAPTURE} &"
         return cmd
 
     def pids(self, node):
         try:
             cmd = "jps | grep -i VerifiableConsumer | awk '{print $1}'"
-            pid_arr = [
-                pid for pid in node.account.ssh_capture(
-                    cmd, allow_fail=True, callback=int)
-            ]
-            return pid_arr
+            return list(
+                node.account.ssh_capture(cmd, allow_fail=True, callback=int)
+            )
         except (RemoteCommandError, ValueError):
             return []
 
@@ -417,8 +398,9 @@ class VerifiableConsumer(BackgroundThreadService):
         try:
             return json.loads(string)
         except ValueError:
-            self.logger.debug("%s: Could not parse as json: %s" %
-                              (str(node.account), str(string)))
+            self.logger.debug(
+                f"{str(node.account)}: Could not parse as json: {str(string)}"
+            )
             return None
 
     def stop_all(self):
@@ -426,9 +408,7 @@ class VerifiableConsumer(BackgroundThreadService):
             self.stop_node(node)
 
     def kill_node(self, node, clean_shutdown=True, allow_fail=False):
-        sig = signal.SIGTERM
-        if not clean_shutdown:
-            sig = signal.SIGKILL
+        sig = signal.SIGKILL if not clean_shutdown else signal.SIGTERM
         for pid in self.pids(node):
             node.account.signal(pid, sig, allow_fail)
 
@@ -439,12 +419,13 @@ class VerifiableConsumer(BackgroundThreadService):
         self.kill_node(node, clean_shutdown=clean_shutdown)
 
         stopped = self.wait_node(node, timeout_sec=self.stop_timeout_sec)
-        assert stopped, "Node %s: did not stop within the specified timeout of %s seconds" % \
-                        (str(node.account), str(self.stop_timeout_sec))
+        assert (
+            stopped
+        ), f"Node {str(node.account)}: did not stop within the specified timeout of {str(self.stop_timeout_sec)} seconds"
 
     def clean_node(self, node):
         self.kill_node(node, clean_shutdown=False)
-        node.account.ssh("rm -rf " + self.PERSISTENT_ROOT, allow_fail=False)
+        node.account.ssh(f"rm -rf {self.PERSISTENT_ROOT}", allow_fail=False)
 
     def current_assignment(self):
         with self.lock:
@@ -462,10 +443,14 @@ class VerifiableConsumer(BackgroundThreadService):
 
     def owner(self, tp):
         with self.lock:
-            for handler in self.event_handlers.values():
-                if tp in handler.current_assignment():
-                    return handler.node
-            return None
+            return next(
+                (
+                    handler.node
+                    for handler in self.event_handlers.values()
+                    if tp in handler.current_assignment()
+                ),
+                None,
+            )
 
     def last_commit(self, tp):
         with self.lock:
@@ -520,8 +505,7 @@ class VerifiableConsumer(BackgroundThreadService):
 
     def get_committed_offsets(self):
         with self.lock:
-            return dict((i, worker.committed)
-                        for i, worker in self.global_state.items())
+            return {i: worker.committed for i, worker in self.global_state.items()}
 
     def get_last_consumed(self):
         with self.lock:
@@ -538,10 +522,10 @@ class VerifiableConsumer(BackgroundThreadService):
                 # between the workers
                 fail_pre = False
                 for idx, s in self.global_state.items():
-                    if not tp in s.position_first:
+                    if tp not in s.position_first:
                         msg.append(f"Start of consumed offset range "\
-                            f"not recorded for partiton {str(tp)}, worker "\
-                            f"{idx} {s.account_str}")
+                                f"not recorded for partiton {str(tp)}, worker "\
+                                f"{idx} {s.account_str}")
                         fail_pre = True
                 if fail_pre:
                     continue
@@ -550,7 +534,7 @@ class VerifiableConsumer(BackgroundThreadService):
                           for s in self.global_state.values()]
                 ranges.sort()
                 adj_pairs = (ranges[n:n + 2] for n in range(len(ranges) - 1))
-                if not all(pair[0][1] == pair[1][0] for pair in adj_pairs):
+                if any(pair[0][1] != pair[1][0] for pair in adj_pairs):
                     msg.append(
                         f"A gap in consumed offsets is detected in partition "
                         f"{str(tp)}. List of consumed ranges per worker "

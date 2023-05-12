@@ -33,8 +33,7 @@ class SelfTestTest(RedpandaTest):
         """
         def all_idle():
             node_reports = self._rpk.self_test_status()
-            return not any([x['status'] == 'running'
-                            for x in node_reports]), node_reports
+            return all(x['status'] != 'running' for x in node_reports), node_reports
 
         return wait_until_result(all_idle, timeout_sec=30, backoff_sec=1)
 
@@ -91,12 +90,12 @@ class SelfTestTest(RedpandaTest):
             ]
             matcher = re.compile(r".*:\s(\d+)")
             mmxs = [matcher.match(r) for r in network_results]
-            assert all([r is not None for r in mmxs]), "Failed to match regex"
+            assert all(r is not None for r in mmxs), "Failed to match regex"
             return (int(result['node_id']), [int(r[1]) for r in mmxs])
 
         # Should be something like: {0: [1,2], 1: [2,3,4], ... etc}
         netcheck_pairings = [seperate_pairings(r) for r in node_reports]
-        netcheck_pairings = {k: v for k, v in netcheck_pairings}
+        netcheck_pairings = dict(netcheck_pairings)
         self.logger.debug(f"netcheck_pairings: {netcheck_pairings}")
         for client, servers in netcheck_pairings.items():
             for server in servers:

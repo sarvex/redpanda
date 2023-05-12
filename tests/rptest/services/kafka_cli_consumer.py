@@ -80,10 +80,7 @@ class KafkaCliConsumer(BackgroundThreadService):
                     f"[{self._instance_name}] consumed: '{line}'")
                 self._messages.append(line)
         except:
-            if self._stopping.is_set():
-                # Expect a non-zero exit code when killing during teardown
-                pass
-            else:
+            if not self._stopping.is_set():
                 raise
         finally:
             self._done = True
@@ -95,10 +92,10 @@ class KafkaCliConsumer(BackgroundThreadService):
 
     def wait_for_started(self, timeout=10):
         def all_started():
-            return all([
+            return all(
                 len(node.account.java_pids("ConsoleConsumer")) == 1
                 for node in self.nodes
-            ])
+            )
 
         wait_until(all_started, timeout, backoff_sec=1)
 

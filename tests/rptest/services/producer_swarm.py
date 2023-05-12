@@ -55,8 +55,7 @@ class ProducerSwarm(Service):
             lambda: self.is_alive(node),
             timeout_sec=600,
             backoff_sec=1,
-            err_msg=
-            f"producer_swarm service {node.account.hostname} failed to start within {600} sec",
+            err_msg=f"producer_swarm service {node.account.hostname} failed to start within 600 sec",
         )
 
     def is_alive(self, node):

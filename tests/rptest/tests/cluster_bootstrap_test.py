@@ -58,7 +58,7 @@ class ClusterBootstrapNew(RedpandaTest):
             try:
                 cluster_uuid = self.redpanda._admin.get_cluster_uuid(node)
                 assert idx != 1, "Expected failure on idx 1"
-                assert cluster_uuid == None, f"Unexpected cluster UUID: {cluster_uuid}"
+                assert cluster_uuid is None, f"Unexpected cluster UUID: {cluster_uuid}"
             except ConnectionError:
                 assert 1 == idx, f"Should have failed on idx 1, failed on {idx}"
 
@@ -86,9 +86,8 @@ class ClusterBootstrapNew(RedpandaTest):
         self.redpanda.restart_nodes(self.redpanda.nodes,
                                     auto_assign_node_id=auto_assign_node_ids,
                                     omit_seeds_on_idx_one=False)
-        for idx in node_ids_per_idx:
+        for idx, expected_node_id in node_ids_per_idx.items():
             n = self.redpanda.get_node(idx)
-            expected_node_id = node_ids_per_idx[idx]
             node_id = self.redpanda.node_id(n)
             assert expected_node_id == node_id, f"Expected {expected_node_id} but got {node_id}"
 
@@ -155,8 +154,9 @@ class ClusterBootstrapUpgrade(RedpandaTest):
                     self.redpanda.logger.debug(f"No cluster UUID in {n.name}")
                     return None
                 if u_prev is not None:
-                    assert u == u_prev, f"Different cluster UUID values:"\
-                        " {u} of {n.name}, and {u_prev} of the previous node"
+                    assert (
+                        u == u_prev
+                    ), 'Different cluster UUID values: {u} of {n.name}, and {u_prev} of the previous node'
                 u_prev = u
             return u_prev
 

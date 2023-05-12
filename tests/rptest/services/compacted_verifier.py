@@ -72,9 +72,7 @@ class CompactedVerifier(Service):
 
         def check_writes():
             new_state = self.remote_info()
-            if new_state["min_writes"] - min_writes < delta:
-                return False
-            return True
+            return new_state["min_writes"] - min_writes >= delta
 
         wait_until(
             check_writes,
@@ -93,9 +91,7 @@ class CompactedVerifier(Service):
 
         def check():
             new_state = self.remote_info()
-            if new_state["min_writes"] < threshold:
-                return False
-            return True
+            return new_state["min_writes"] >= threshold
 
         wait_until(
             check,

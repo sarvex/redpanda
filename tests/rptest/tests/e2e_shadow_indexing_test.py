@@ -184,7 +184,7 @@ class EndToEndShadowIndexingTestCompactedTopic(EndToEndShadowIndexingBase):
 
         # Force compaction every 2 seconds now that we have some data
         rpk_client = RpkTool(self.redpanda)
-        rpk_client.cluster_config_set("log_compaction_interval_ms", f'{2000}')
+        rpk_client.cluster_config_set("log_compaction_interval_ms", 2000)
 
         original_snapshot = self.redpanda.storage(
             all_nodes=True).segments_by_node("kafka", self.topic, 0)
@@ -193,7 +193,7 @@ class EndToEndShadowIndexingTestCompactedTopic(EndToEndShadowIndexingBase):
             assert len(
                 node_segments
             ) >= segment_count, f"Expected at least {segment_count} segments, " \
-                                f"but got {len(node_segments)} on {node}"
+                                    f"but got {len(node_segments)} on {node}"
 
         self.await_num_produced(min_records=5000)
         self.logger.info(
@@ -559,12 +559,11 @@ class ShadowIndexingWhileBusyTest(PreallocNodesTest):
                 self.client().create_topic(some_topic)
                 random_topics.append(some_topic)
 
-            if trigger == 2:
-                if len(random_topics) > 0:
-                    random.shuffle(random_topics)
-                    some_topic = random_topics.pop()
-                    self.logger.debug(f'Delete topic: {some_topic}')
-                    self.client().delete_topic(some_topic.name)
+            if trigger == 2 and random_topics:
+                random.shuffle(random_topics)
+                some_topic = random_topics.pop()
+                self.logger.debug(f'Delete topic: {some_topic}')
+                self.client().delete_topic(some_topic.name)
 
             return producer.is_complete()
 

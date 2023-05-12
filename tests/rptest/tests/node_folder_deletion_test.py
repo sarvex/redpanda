@@ -42,10 +42,9 @@ class NodeFolderDeletionTest(PreallocNodesTest):
         # new bootstrap
         self.redpanda.start(auto_assign_node_id=True,
                             omit_seeds_on_idx_one=False)
-        topics = []
-        for i in range(5):
-            topics.append(TopicSpec(partition_count=16, replication_factor=3))
-
+        topics = [
+            TopicSpec(partition_count=16, replication_factor=3) for _ in range(5)
+        ]
         self.client().create_topic(topics)
         topic = topics[0]
         msg_size = 1024

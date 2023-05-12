@@ -71,7 +71,7 @@ def get_kvstore_topic_key_counts(redpanda):
             keys = [i['key'] for i in items]
 
             for k in keys:
-                if k['keyspace'] == "cluster" or k['keyspace'] == "usage":
+                if k['keyspace'] in ["cluster", "usage"]:
                     # Not a per-partition key
                     continue
 
@@ -118,7 +118,7 @@ def topic_storage_purged(redpanda, topic_name):
     # topic creation/destruction cycles.
 
     topic_key_counts = get_kvstore_topic_key_counts(redpanda)
-    if any([v > 0 for v in topic_key_counts.values()]):
+    if any(v > 0 for v in topic_key_counts.values()):
         redpanda.logger.info("Topic keys remain in KVStore")
         for node, count in topic_key_counts.items():
             redpanda.logger.info(f"  {node}: {count}")
@@ -277,7 +277,7 @@ class TopicDeleteAfterMovementTest(RedpandaTest):
         for partition in range(3):
 
             def get_nodes(partition):
-                return list(r['node_id'] for r in partition['replicas'])
+                return [r['node_id'] for r in partition['replicas']]
 
             nodes_before = set(
                 get_nodes(self.admin.get_partitions(self.topic, partition)))
@@ -414,7 +414,7 @@ class TopicDeleteCloudStorageTest(RedpandaTest):
         shutdown code.
         """
         victim_node = self.redpanda.nodes[-1]
-        other_nodes = self.redpanda.nodes[0:2]
+        other_nodes = self.redpanda.nodes[:2]
 
         self.logger.info(f"Stopping victim node {victim_node.name}")
         self.redpanda.stop_node(victim_node)
@@ -461,10 +461,13 @@ class TopicDeleteCloudStorageTest(RedpandaTest):
         gives up.
         """
         self._populate_topic(self.topic)
-        keys_before = set(
-            o.key for o in self.redpanda.cloud_storage_client.list_objects(
-                self.si_settings.cloud_storage_bucket, topic=self.topic))
-        assert len(keys_before) > 0
+        keys_before = {
+            o.key
+            for o in self.redpanda.cloud_storage_client.list_objects(
+                self.si_settings.cloud_storage_bucket, topic=self.topic
+            )
+        }
+        assert keys_before
 
         with firewall_blocked(self.redpanda.nodes, self._s3_port):
             self.kafka_tools.delete_topic(self.topic)
@@ -482,9 +485,12 @@ class TopicDeleteCloudStorageTest(RedpandaTest):
             time.sleep(90)
 
             # Confirm our firewall block is really working, nothing was deleted
-            keys_after = set(
-                o.key for o in self.redpanda.cloud_storage_client.list_objects(
-                    self.si_settings.cloud_storage_bucket))
+            keys_after = {
+                o.key
+                for o in self.redpanda.cloud_storage_client.list_objects(
+                    self.si_settings.cloud_storage_bucket
+                )
+            }
             assert len(keys_after) >= len(keys_before)
 
         # Check that after the controller backend experiences errors trying
@@ -496,10 +502,13 @@ class TopicDeleteCloudStorageTest(RedpandaTest):
                       partition_count=self.partition_count,
                       cleanup_policy=TopicSpec.CLEANUP_DELETE))
         self._populate_topic(next_topic)
-        after_keys = set(
-            o.key for o in self.redpanda.cloud_storage_client.list_objects(
-                self.si_settings.cloud_storage_bucket, topic=next_topic))
-        assert len(after_keys) > 0
+        after_keys = {
+            o.key
+            for o in self.redpanda.cloud_storage_client.list_objects(
+                self.si_settings.cloud_storage_bucket, topic=next_topic
+            )
+        }
+        assert after_keys
 
         self.kafka_tools.delete_topic(next_topic)
         wait_until(lambda: topic_storage_purged(self.redpanda, next_topic),
@@ -545,9 +554,12 @@ class TopicDeleteCloudStorageTest(RedpandaTest):
 
         self._populate_topic(self.topic)
 
-        keys_before = set(
-            o.key for o in self.redpanda.cloud_storage_client.list_objects(
-                self.si_settings.cloud_storage_bucket))
+        keys_before = {
+            o.key
+            for o in self.redpanda.cloud_storage_client.list_objects(
+                self.si_settings.cloud_storage_bucket
+            )
+        }
 
         # Delete topic
         self.kafka_tools.delete_topic(self.topic)
@@ -563,9 +575,12 @@ class TopicDeleteCloudStorageTest(RedpandaTest):
             # instantly, but that they also are not deleted after some
             # delay.
             time.sleep(10)
-            keys_after = set(
-                o.key for o in self.redpanda.cloud_storage_client.list_objects(
-                    self.si_settings.cloud_storage_bucket))
+            keys_after = {
+                o.key
+                for o in self.redpanda.cloud_storage_client.list_objects(
+                    self.si_settings.cloud_storage_bucket
+                )
+            }
             objects_deleted = keys_before - keys_after
             self.logger.debug(
                 f"Objects deleted after topic deletion: {objects_deleted}")
@@ -602,21 +617,29 @@ class TopicDeleteCloudStorageTest(RedpandaTest):
 
         self._populate_topic(self.topic)
 
-        keys_before = set(
-            o.key for o in self.redpanda.cloud_storage_client.list_objects(
-                self.si_settings.cloud_storage_bucket))
+        keys_before = {
+            o.key
+            for o in self.redpanda.cloud_storage_client.list_objects(
+                self.si_settings.cloud_storage_bucket
+            )
+        }
 
         def get_nodes(partition):
-            return list(r['node_id'] for r in partition['replicas'])
+            return [r['node_id'] for r in partition['replicas']]
 
         nodes_before = get_nodes(admin.get_partitions(self.topic, 0))
         replacement_node = next(
-            iter((set([self.redpanda.idx(n)
-                       for n in self.redpanda.nodes]) - set(nodes_before))))
+            iter(
+                (
+                    {self.redpanda.idx(n) for n in self.redpanda.nodes}
+                    - set(nodes_before)
+                )
+            )
+        )
         nodes_after = nodes_before[1:] + [
             replacement_node,
         ]
-        new_assignments = list({'core': 0, 'node_id': n} for n in nodes_after)
+        new_assignments = [{'core': 0, 'node_id': n} for n in nodes_after]
         admin.set_partition_replicas(self.topic, 0, new_assignments)
 
         def move_complete():
@@ -628,9 +651,12 @@ class TopicDeleteCloudStorageTest(RedpandaTest):
         # Some additional time in case a buggy deletion path is async
         time.sleep(5)
 
-        keys_after = set(
-            o.key for o in self.redpanda.cloud_storage_client.list_objects(
-                self.si_settings.cloud_storage_bucket))
+        keys_after = {
+            o.key
+            for o in self.redpanda.cloud_storage_client.list_objects(
+                self.si_settings.cloud_storage_bucket
+            )
+        }
 
         deleted = keys_before - keys_after
         self.logger.debug(f"Objects deleted after partition move: {deleted}")
@@ -679,12 +705,17 @@ class TopicDeleteStressTest(RedpandaTest):
             ]
 
             def check_compaction():
-                return all([
-                    m.evaluate([
-                        ('vectorized_storage_log_compacted_segment_total',
-                         lambda a, b: b > 3)
-                    ]) for m in metrics
-                ])
+                return all(
+                    m.evaluate(
+                        [
+                            (
+                                'vectorized_storage_log_compacted_segment_total',
+                                lambda a, b: b > 3,
+                            )
+                        ]
+                    )
+                    for m in metrics
+                )
 
             wait_until(check_compaction,
                        timeout_sec=120,

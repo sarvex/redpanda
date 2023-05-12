@@ -52,7 +52,7 @@ class ThroughputLimitsSnc(RedpandaTest):
         for prop in list(self.ConfigProp):
             val = self.get_config_parameter_random_value(prop)
             self.config[prop] = val
-            if not val is None:
+            if val is not None:
                 self.redpanda.add_extra_rp_conf({prop.value: val})
         self.logger.info(
             f"Initial cluster props: {self.redpanda._extra_rp_conf}")
@@ -81,24 +81,15 @@ class ThroughputLimitsSnc(RedpandaTest):
             min = 128  # practical minimum
             if r == 0:
                 return None
-            if r == 1:
-                return min
-            return self.binexp_random(min, 2**40)  # up to 1 TB/s
-
+            return min if r == 1 else self.binexp_random(min, 2**40)
         if prop == self.ConfigProp.QUOTA_SHARD_MIN_BPS:
             r = self.rnd.randrange(3)
-            if r == 0:
-                return 0
-            return self.binexp_random(0, 2**30)  # up to 1 GB/s
-
+            return 0 if r == 0 else self.binexp_random(0, 2**30)
         if prop == self.ConfigProp.QUOTA_SHARD_MIN_RATIO:
             r = self.rnd.randrange(3)
             if r == 0:
                 return 0
-            if r == 1:
-                return 1
-            return self.rnd.random()
-
+            return 1 if r == 1 else self.rnd.random()
         if prop == self.ConfigProp.THROTTLE_DELAY_MAX_MS:
             r = self.rnd.randrange(3)
             if r == 0:
@@ -108,13 +99,10 @@ class ThroughputLimitsSnc(RedpandaTest):
         if prop == self.ConfigProp.BAL_WINDOW_MS:
             r = self.rnd.randrange(4)
             min = 1
-            max = 2147483647
             if r == 0:
                 return min
-            if r == 1:
-                return max
-            return self.binexp_random(min, max)
-
+            max = 2147483647
+            return max if r == 1 else self.binexp_random(min, max)
         if prop == self.ConfigProp.BAL_PERIOD_MS:
             r = self.rnd.randrange(3)
             if r == 0:
@@ -193,7 +181,7 @@ class ThroughputLimitsSnc(RedpandaTest):
                                         self.ConfigProp.QUOTA_NODE_MAX_EG,
                                         effective_node_quota[1]))
 
-        errors = set([e for e in errors if e])
-        assert len(errors) == 0, (
-            f"Test has failed with {len(errors)} distinct errors. "
-            f"{errors}, rnd_seed: {self.rnd_seed}")
+        errors = {e for e in errors if e}
+        assert (
+            not errors
+        ), f"Test has failed with {len(errors)} distinct errors. {errors}, rnd_seed: {self.rnd_seed}"

@@ -18,10 +18,7 @@ from rptest.util import Scale
 
 def scale_dependent_length(scale):
     def get_length(f_type):
-        if scale.local:
-            return random.randint(1, 5)
-        else:
-            return random.randint(1, 20)
+        return random.randint(1, 5) if scale.local else random.randint(1, 20)
 
     return get_length
 

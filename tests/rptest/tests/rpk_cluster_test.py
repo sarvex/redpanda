@@ -76,10 +76,8 @@ class RpkClusterTest(RedpandaTest):
                 error_lines.append(l)
             elif 'errors occurred' in l:
                 any_errs = True
-            else:
-                m = re.match("^Debug bundle saved to '(.+)'$", l)
-                if m:
-                    output_file = m.group(1)
+            elif m := re.match("^Debug bundle saved to '(.+)'$", l):
+                output_file = m[1]
 
         # Avoid false passes if our error line scraping gets broken
         # by a format change.
@@ -192,7 +190,6 @@ class RpkClusterTest(RedpandaTest):
             r = self._rpk.cluster_config_status()
         except RpkException as e:
             self.logger.info(f"Got expected exception: {e}")
-            pass
         else:
             assert False, f"Unexpected success: '{r}'"
 
@@ -203,7 +200,6 @@ class RpkClusterTest(RedpandaTest):
                 self.redpanda.SUPERUSER_CREDENTIALS.algorithm)
         except RpkException as e:
             self.logger.info(f"Got expected exception: {e}")
-            pass
         else:
             assert False, f"Unexpected success: '{r}'"
 
@@ -291,9 +287,9 @@ class RpkClusterTest(RedpandaTest):
             return
 
         with expect_exception(RpkException,
-                              lambda e: "License is malformed" in str(e)):
+                                  lambda e: "License is malformed" in str(e)):
             with tempfile.NamedTemporaryFile() as tf:
-                tf.write(bytes(license + 'r', 'UTF-8'))
+                tf.write(bytes(f'{license}r', 'UTF-8'))
                 tf.seek(0)
 
                 self._rpk.license_set(tf.name)

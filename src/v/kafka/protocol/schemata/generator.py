@@ -587,20 +587,17 @@ class VersionRange:
         self.min, self.max = self._parse(spec)
 
     def _parse(self, spec):
-        match = re.match("^(?P<min>\d+)$", spec)
-        if match:
-            min = int(match.group("min"))
+        if match := re.match("^(?P<min>\d+)$", spec):
+            min = int(match["min"])
             return min, min
 
-        match = re.match("^(?P<min>\d+)\+$", spec)
-        if match:
-            min = int(match.group("min"))
+        if match := re.match("^(?P<min>\d+)\+$", spec):
+            min = int(match["min"])
             return min, None
 
-        match = re.match("^(?P<min>\d+)\-(?P<max>\d+)$", spec)
-        if match:
-            min = int(match.group("min"))
-            max = int(match.group("max"))
+        if match := re.match("^(?P<min>\d+)\-(?P<max>\d+)$", spec):
+            min = int(match["min"])
+            max = int(match["max"])
             return min, max
 
     guard_modes = enum.Enum('guard_modes', 'GUARD, NO_GUARD, NO_SOURCE')
@@ -635,15 +632,16 @@ class VersionRange:
         elif not flex:
             if self.min >= first_flex:
                 return self.guard_enum.NO_SOURCE, None
-        else:
-            if self.max == None:
-                if self.min <= first_flex:
-                    return self.guard_enum.NO_GUARD, None
-            elif self.max < first_flex:
-                return self.guard_enum.NO_SOURCE, None
-            elif self.max == first_flex:
-                return self.guard_enum.NO_GUARD, None
-
+        elif (
+            self.max is None
+            and self.min <= first_flex
+            or self.max != None
+            and self.max >= first_flex
+            and self.max == first_flex
+        ):
+            return self.guard_enum.NO_GUARD, None
+        elif self.max != None and self.max < first_flex:
+            return self.guard_enum.NO_SOURCE, None
         return self._guard()
 
     def __repr__(self):
@@ -695,10 +693,7 @@ class FieldType:
             type_name = apply_struct_renames(path, type_name)
             t = StructType(type_name, field["fields"], path)
 
-        if is_array:
-            return ArrayType(t)
-
-        return t
+        return ArrayType(t) if is_array else t
 
     @property
     def is_struct(self):
@@ -717,7 +712,7 @@ class ScalarType(FieldType):
     def potentially_flexible_type(self):
         """Evaluates to true if the scalar type would be parsed as flex
         if the version is high enough"""
-        return self.name == "string" or self.name == "bytes" or self.name == "iobuf"
+        return self.name in ["string", "bytes", "iobuf"]
 
 
 class StructType(FieldType):
@@ -762,7 +757,7 @@ class StructType(FieldType):
         """
         calculate extra headers needed to support this struct
         """
-        whiches = set(("header", "source"))
+        whiches = {"header", "source"}
         assert which in whiches
 
         def type_iterator(fields):
@@ -792,7 +787,7 @@ class StructType(FieldType):
             h = h.get(which, ())
             yield from maybe_strings(h)
 
-        return set(h for t in types for h in type_headers(t))
+        return {h for t in types for h in type_headers(t)}
 
     @property
     def is_default_comparable(self):
@@ -867,18 +862,14 @@ class Field:
             d = d.get(p, None)
             if d is None:
                 break
-        if isinstance(d, tuple):
-            return d
-        return None
+        return d if isinstance(d, tuple) else None
 
     def _redpanda_type(self):
         """
         Resolve a redpanda type override.
         Lookup occurs from most to least specific.
         """
-        # path overrides
-        path_type = self._redpanda_path_type()
-        if path_type:
+        if path_type := self._redpanda_path_type():
             return path_type[0], None
 
         # entity type overrides
@@ -894,19 +885,14 @@ class Field:
             return field_name_type_map[(tn, fn)]
 
         # fundamental type overrides
-        if tn in basic_type_map:
-            return basic_type_map[tn][0], None
-
-        return tn, None
+        return (basic_type_map[tn][0], None) if tn in basic_type_map else (tn, None)
 
     def _redpanda_decoder(self):
         """
         Resolve a redpanda type override.
         Lookup occurs from most to least specific.
         """
-        # path overrides
-        path_type = self._redpanda_path_type()
-        if path_type:
+        if path_type := self._redpanda_path_type():
             return basic_type_map[path_type[1]], path_type[0]
 
         # entity type overrides
@@ -953,14 +939,13 @@ class Field:
                 return plain_decoder[3], named_type
             assert plain_decoder[1]
             return plain_decoder[1], named_type
-        if self.potentially_flexible_type:
-            if flex is True:
-                if self.nullable():
-                    assert plain_decoder[4]
-                    return plain_decoder[4], named_type
-                else:
-                    assert plain_decoder[3]
-                    return plain_decoder[3], named_type
+        if self.potentially_flexible_type and flex is True:
+            if self.nullable():
+                assert plain_decoder[4]
+                return plain_decoder[4], named_type
+            else:
+                assert plain_decoder[3]
+                return plain_decoder[3], named_type
         if self.nullable():
             assert plain_decoder[2]
             return plain_decoder[2], named_type
@@ -979,9 +964,9 @@ class Field:
             # sensitive decendents defined. This field is an ancestor of a
             # sensitive field, but it itself isn't sensitive.
             return False
-        assert d is None or d is True, \
-            "expected field '{}' to be missing or True; field path: {}, remaining path: {}" \
-            .format(self._field["name"], self._path, d)
+        assert (
+            d is None or d is True
+        ), f"""expected field '{self._field["name"]}' to be missing or True; field path: {self._path}, remaining path: {d}"""
         return d
 
     @property
@@ -1573,7 +1558,7 @@ std::ostream& operator<<(std::ostream& o, const {{ struct.name }}&) {
 # remove scalar type `iobuf` from the set of types used to validate schema. the
 # type is not a native kafka type, but is still represented in the code
 # generator for some scenarios involving overloads / customizing output.
-ALLOWED_SCALAR_TYPES = list(set(SCALAR_TYPES) - set(["iobuf"]))
+ALLOWED_SCALAR_TYPES = list(set(SCALAR_TYPES) - {"iobuf"})
 ALLOWED_TYPES = \
     ALLOWED_SCALAR_TYPES + \
     [f"[]{t}" for t in ALLOWED_SCALAR_TYPES +
@@ -1688,12 +1673,12 @@ def render_struct_comment(struct):
         max_width = max(len(field.name), max_width)
 
     for field in struct.fields:
-        field_indent = indent + f"{field.name:>{max_width}}: "
+        field_indent = f"{indent}{field.name:>{max_width}}: "
         wrapper = textwrap.TextWrapper(initial_indent=field_indent,
                                        subsequent_indent=indent + " " *
                                        (2 + max_width),
                                        width=80)
-        about = field.about() + f" Supported versions: {field.versions()}"
+        about = f"{field.about()} Supported versions: {field.versions()}"
         comment += wrapper.fill(about) + "\n"
 
     return f"/*\n{comment} */"
@@ -1722,7 +1707,7 @@ def codegen(schema_path):
     # extension that is not supported by the python json parser.
     schema = io.StringIO()
     with open(schema_path, "r") as f:
-        for line in f.readlines():
+        for line in f:
             line = re.sub("\/\/.*", "", line)
             if line.strip():
                 schema.write(line)

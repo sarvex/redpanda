@@ -32,23 +32,23 @@ def main():
     parser = generate_options()
     options, _ = parser.parse_known_args()
     if not options.path.startswith('kafka'):
-        print(f"The path should start with 'kafka'")
+        print("The path should start with 'kafka'")
         sys.exit(1)
 
     p = options.path.split('/')
     x = xxhash.xxh32()
 
-    path = p[0] + '/' + p[1] + '/' + p[2]
+    path = f'{p[0]}/{p[1]}/{p[2]}'
     x.update(path.encode('ascii'))
-    manifest_hash = x.hexdigest()[0] + '0000000'
+    manifest_hash = f'{x.hexdigest()[0]}0000000'
     print(
         f"manifest path:       {manifest_hash}/meta/{p[0]}/{p[1]}/{p[2]}/manifest.json"
     )
 
-    path = p[0] + '/' + p[1]
+    path = f'{p[0]}/{p[1]}'
     x.reset()
     x.update(path.encode('ascii'))
-    topic_manifest_hash = x.hexdigest()[0] + '0000000'
+    topic_manifest_hash = f'{x.hexdigest()[0]}0000000'
     print(
         f"topic manifest path: {topic_manifest_hash}/meta/{p[0]}/{p[1]}/topic_manifest.json"
     )

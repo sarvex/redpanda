@@ -68,7 +68,7 @@ class ShadowIndexingCompactedTopicTest(EndToEndTest):
             assert len(
                 node_segments
             ) >= expected_segment_count, f"Expected at least {expected_segment_count} segments, " \
-                                         f"but got {len(node_segments)} on {node}"
+                                             f"but got {len(node_segments)} on {node}"
 
         self.await_num_produced(min_records=10000)
         self.logger.info(
@@ -85,8 +85,7 @@ class ShadowIndexingCompactedTopicTest(EndToEndTest):
         # Compaction for a given segment will only happen after it
         # is uploaded to SI. The compacted segment can then be re-uploaded
         # to SI to replace one of the original non-compacted segments.
-        self._rpk_client.cluster_config_set("log_compaction_interval_ms",
-                                            f'{2000}')
+        self._rpk_client.cluster_config_set("log_compaction_interval_ms", 2000)
 
         wait_for_removal_of_n_segments(redpanda=self.redpanda,
                                        topic=self.topic,
@@ -96,15 +95,17 @@ class ShadowIndexingCompactedTopicTest(EndToEndTest):
 
         def compacted_segments_uploaded():
             manifest = BucketView(self.redpanda, topics=self.topics) \
-                                  .manifest_for_ntp(self.topic,
+                                      .manifest_for_ntp(self.topic,
                                                     partition=0)
             return any(meta['is_compacted']
                        for meta in manifest['segments'].values())
 
-        wait_until(compacted_segments_uploaded,
-                   timeout_sec=180,
-                   backoff_sec=2,
-                   err_msg=lambda: f"Compacted segments not uploaded")
+        wait_until(
+            compacted_segments_uploaded,
+            timeout_sec=180,
+            backoff_sec=2,
+            err_msg=lambda: "Compacted segments not uploaded",
+        )
 
         s3_snapshot = BucketView(self.redpanda, topics=self.topics)
         s3_snapshot.assert_at_least_n_uploaded_segments_compacted(

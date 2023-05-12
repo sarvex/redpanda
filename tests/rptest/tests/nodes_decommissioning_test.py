@@ -42,7 +42,7 @@ class NodesDecommissioningTest(EndToEndTest):
 
     def _create_topics(self, replication_factors=[1, 3]):
         topics = []
-        for i in range(10):
+        for _ in range(10):
             spec = TopicSpec(
                 partition_count=random.randint(1, 10),
                 replication_factor=random.choice(replication_factors))
@@ -79,10 +79,7 @@ class NodesDecommissioningTest(EndToEndTest):
 
     def _node_removed(self, removed_id, node_to_query):
         brokers = self.admin.get_brokers(node=node_to_query)
-        for b in brokers:
-            if b['node_id'] == removed_id:
-                return False
-        return True
+        return all(b['node_id'] != removed_id for b in brokers)
 
     def _find_replacement(self, current_replicas, to_remove):
         new_replicas = []
@@ -508,7 +505,7 @@ class NodesDecommissioningTest(EndToEndTest):
             4,
             extra_rp_conf={"partition_autobalancing_mode": "node_add"})
         # start 3 nodes
-        self.redpanda.start(nodes=self.redpanda.nodes[0:3])
+        self.redpanda.start(nodes=self.redpanda.nodes[:3])
         self._client = DefaultClient(self.redpanda)
         self._rpk_client = RpkTool(self.redpanda)
 
@@ -606,7 +603,7 @@ class NodesDecommissioningTest(EndToEndTest):
             self.redpanda.stop_node(to_decommission)
 
         self._set_recovery_rate(1)
-        for i in range(1, 10):
+        for _ in range(1, 10):
             # set recovery rate to small value to prevent node
             # from finishing decommission operation
             self.logger.info(f"decommissioning node: {node_id}")
@@ -723,9 +720,7 @@ class NodesDecommissioningTest(EndToEndTest):
                 allow_fail=True).decode()
 
             # check if there are at least 3 failed join attempts
-            return sum([
-                1 for l in logs.splitlines() if "Error joining cluster" in l
-            ]) >= 3
+            return sum(1 for l in logs.splitlines() if "Error joining cluster" in l) >= 3
 
         wait_until(tried_to_join, 20, 1)
 

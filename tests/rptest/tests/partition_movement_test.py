@@ -165,7 +165,7 @@ class PartitionMovementTest(PartitionMovementMixin, EndToEndTest):
         """
         Move partitions with data, but no active producers or consumers.
         """
-        self.logger.info(f"Starting redpanda...")
+        self.logger.info("Starting redpanda...")
         test_mixed_versions = num_to_upgrade > 0
         install_opts = InstallOptions(
             install_previous_version=test_mixed_versions,
@@ -181,13 +181,12 @@ class PartitionMovementTest(PartitionMovementMixin, EndToEndTest):
                                  replication_factor=replication_factor)
                 topics.append(spec)
 
-        self.logger.info(f"Creating topics...")
+        self.logger.info("Creating topics...")
         for spec in topics:
             self.client().create_topic(spec)
 
         num_records = 1000
-        produced = set(
-            ((f"key-{i:08d}", f"record-{i:08d}") for i in range(num_records)))
+        produced = {(f"key-{i:08d}", f"record-{i:08d}") for i in range(num_records)}
 
         for spec in topics:
             self.logger.info(f"Producing to {spec}")
@@ -198,7 +197,7 @@ class PartitionMovementTest(PartitionMovementMixin, EndToEndTest):
                 f"Finished producing to {spec}, waiting for producer...")
             producer.wait()
             producer.free()
-            self.logger.info(f"Producer stop complete.")
+            self.logger.info("Producer stop complete.")
 
         for _ in range(25):
             self._move_and_verify()
@@ -231,14 +230,13 @@ class PartitionMovementTest(PartitionMovementMixin, EndToEndTest):
                     time.sleep(5)
                     for m in consumer.messages:
                         self.logger.info(f"message: {m}")
-                    consumed = set([(m['key'], m['value'])
-                                    for m in consumer.messages])
+                    consumed = {(m['key'], m['value']) for m in consumer.messages}
 
-            self.logger.info(f"Stopping consumer...")
+            self.logger.info("Stopping consumer...")
             consumer.stop()
-            self.logger.info(f"Awaiting consumer...")
+            self.logger.info("Awaiting consumer...")
             consumer.wait()
-            self.logger.info(f"Freeing consumer...")
+            self.logger.info("Freeing consumer...")
             consumer.free()
 
             self.logger.info(f"Finished verifying records in {spec}")
@@ -359,9 +357,7 @@ class PartitionMovementTest(PartitionMovementMixin, EndToEndTest):
             # NOTE: partitions may not be returned if their fields can't be
             # populated, e.g. during leadership changes.
             partitions = list(rpk.describe_topic(spec.name))
-            if len(partitions) == 3:
-                return (True, partitions)
-            return (False, None)
+            return (True, partitions) if len(partitions) == 3 else (False, None)
 
         partitions = wait_until_result(has_offsets_for_all_partitions, 30, 2)
 
@@ -376,9 +372,7 @@ class PartitionMovementTest(PartitionMovementMixin, EndToEndTest):
             partitions_after = list(rpk.describe_topic(spec.name))
             if len(partitions_after) != 3:
                 return False
-            return all([
-                offset_map[p.id] == p.high_watermark for p in partitions_after
-            ])
+            return all(offset_map[p.id] == p.high_watermark for p in partitions_after)
 
         wait_until(offsets_are_recovered, 30, 2)
 
@@ -405,9 +399,8 @@ class PartitionMovementTest(PartitionMovementMixin, EndToEndTest):
 
         # Pick a node id where the topic currently isn't allocated
         valid_dest = list(
-            set([b['node_id']
-                 for b in brokers]) - set([a['node_id']
-                                           for a in assignments]))[0]
+            ({b['node_id'] for b in brokers} - {a['node_id'] for a in assignments})
+        )[0]
 
         # This test will need updating on far-future hardware when core counts go higher
         invalid_shard = 1000
@@ -491,7 +484,7 @@ class PartitionMovementTest(PartitionMovementMixin, EndToEndTest):
 
         # Create topic with enough data that inter-node movement
         # will take a while.
-        name = f"movetest"
+        name = "movetest"
         spec = TopicSpec(name=name, partition_count=1, replication_factor=3)
         self.client().create_topic(spec)
 
@@ -538,7 +531,7 @@ class PartitionMovementTest(PartitionMovementMixin, EndToEndTest):
         # Start an inter-node move, which should take some time
         # to complete because of recovery network traffic
         assignments = self._get_assignments(admin, name, 0)
-        new_node = list(node_ids - set([a['node_id'] for a in assignments]))[0]
+        new_node = list(node_ids - {a['node_id'] for a in assignments})[0]
         self.logger.info(f"old assignments: {assignments}")
         old_assignments = assignments
         assignments = assignments[1:] + [{'node_id': new_node, 'core': 0}]
@@ -596,7 +589,7 @@ class PartitionMovementTest(PartitionMovementMixin, EndToEndTest):
             f"Finished producing to {topic}, waiting for producer...")
         producer.wait()
         producer.free()
-        self.logger.info(f"Producer stop complete.")
+        self.logger.info("Producer stop complete.")
 
         admin = Admin(self.redpanda)
         # get current assignments
@@ -740,7 +733,7 @@ class PartitionMovementTest(PartitionMovementMixin, EndToEndTest):
             self.logger.debug(
                 f"current controller: {controller_id}, stopped node: {to_stop}"
             )
-            return controller_id != -1 and controller_id != to_stop
+            return controller_id not in [-1, to_stop]
 
         wait_until(new_controller_available, 30, 1)
         # ask partition to move
@@ -815,7 +808,7 @@ class PartitionMovementTest(PartitionMovementMixin, EndToEndTest):
             self.logger.debug(
                 f"current controller: {controller_id}, stopped node: {replaced}"
             )
-            return controller_id != -1 and controller_id != replaced
+            return controller_id not in [-1, replaced]
 
         wait_until(new_controller_available, 30, 1)
 
@@ -886,7 +879,7 @@ class SIPartitionMovementTest(PartitionMovementMixin, EndToEndTest):
         return throughput, records, moves, partitions
 
     def _partial_upgrade(self, num_to_upgrade: int):
-        nodes = self.redpanda.nodes[0:num_to_upgrade]
+        nodes = self.redpanda.nodes[:num_to_upgrade]
         self.logger.info(f"Upgrading nodes: {[node.name for node in nodes]}")
 
         self.redpanda._installer.install(nodes, RedpandaInstaller.HEAD)

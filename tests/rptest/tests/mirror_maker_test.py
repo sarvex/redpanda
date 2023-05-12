@@ -132,13 +132,14 @@ class TestMirrorMakerService(MirrorMakerService):
                                          num_nodes=1,
                                          source_cluster=self.source_broker,
                                          target_cluster=self.redpanda)
-        topics = []
-        for i in range(0, 10):
-            topics.append(
-                TopicSpec(partition_count=random.randint(1, 10),
-                          retention_bytes=random.randint(100000000, 300000000),
-                          retention_ms=random.randint(1 * 3600000,
-                                                      10 * 3600000)))
+        topics = [
+            TopicSpec(
+                partition_count=random.randint(1, 10),
+                retention_bytes=random.randint(100000000, 300000000),
+                retention_ms=random.randint(1 * 3600000, 10 * 3600000),
+            )
+            for _ in range(0, 10)
+        ]
         self.source_client.create_topic(topics)
         self.mirror_maker.start()
         # start source producer & target consumer
@@ -200,10 +201,10 @@ class TestMirrorMakerService(MirrorMakerService):
         def group_state_is_valid():
             partitions = src_rpk.group_describe(consumer_group).partitions
 
-            return all([
+            return all(
                 p.current_offset is not None and p.current_offset > 0
                 for p in partitions
-            ])
+            )
 
         wait_until(group_state_is_valid, 30)
 
@@ -225,7 +226,7 @@ class TestMirrorMakerService(MirrorMakerService):
             self.logger.info(
                 f"source {source_group}, target_group: {target_group}")
             return sorted(target_group.partitions) == sorted(source_group.partitions) and \
-                target_group.name == source_group.name
+                    target_group.name == source_group.name
 
         # wait for consumer group sync
         timeout = 600 if self.redpanda.dedicated_nodes else 60

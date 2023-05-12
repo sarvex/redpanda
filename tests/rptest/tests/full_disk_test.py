@@ -216,10 +216,9 @@ class FullDiskTest(EndToEndTest):
 
     @cluster(num_nodes=5, log_allow_list=FDT_LOG_ALLOW_LIST)
     def test_full_disk_no_produce(self):
-        # Create topics, some extra, to exercise different placements
-        topics = []
-        for _ in range(0, 5):
-            topics.append(TopicSpec(partition_count=random.randint(1, 10)))
+        topics = [
+            TopicSpec(partition_count=random.randint(1, 10)) for _ in range(0, 5)
+        ]
         # chose one topic to run the main workload
         DefaultClient(self.redpanda).create_topic(topics)
         self.topic = random.choice(topics).name

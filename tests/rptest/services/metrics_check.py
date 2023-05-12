@@ -96,7 +96,7 @@ class MetricCheck(object):
         for k, v in samples.items():
             self.logger.info(f"  Captured {k}={v}")
 
-        if len(samples) == 0:
+        if not samples:
             metrics_endpoint = ("/metrics" if self._metrics_endpoint
                                 == MetricsEndpoint.METRICS else
                                 "/public_metrics")

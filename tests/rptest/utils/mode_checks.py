@@ -27,7 +27,7 @@ def cleanup_on_early_exit(caller):
         ), f'{name.early_exit_hook} should be a method which can be called to set up early exit from test'
         hook()
 
-    caller.logger.debug(f'Cleaning up unused nodes.')
+    caller.logger.debug('Cleaning up unused nodes.')
 
     if test_context := getattr(caller, 'test_context', None):
         allocate_and_free(test_context.cluster, caller.logger)

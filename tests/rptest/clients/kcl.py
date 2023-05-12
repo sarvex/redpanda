@@ -54,20 +54,17 @@ class KCL:
                                 leader_epoch,
                                 current_leader_epoch=None):
         cmd = ['misc', 'offset-for-leader-epoch']
-        if isinstance(topics, list):
-            cmd += topics
-        else:
-            cmd += [topics]
+        cmd += topics if isinstance(topics, list) else [topics]
         cmd += ['-e', str(leader_epoch)]
         if current_leader_epoch:
             cmd += ['-c', str(current_leader_epoch)]
         lines = self._cmd(cmd).splitlines()
         ret = []
         for l in lines:
-            m = re.match(
+            if m := re.match(
                 r" *(?P<broker>\d+) +(?P<topic>.+?) +(?P<partition>\d+) +(?P<epoch>-?\d*?) +(?P<end_offset>-?\d*?) +(?P<error>.*) *",
-                l)
-            if m:
+                l,
+            ):
                 ret.append(
                     KclPartitionEpochEndOffset(
                         m['broker'], m['topic'], int(m['partition']),
@@ -78,18 +75,14 @@ class KCL:
 
     def list_offsets(self, topics):
         cmd = ['misc', 'list-offsets']
-        if isinstance(topics, list):
-            cmd += topics
-        else:
-            cmd += [topics]
-
+        cmd += topics if isinstance(topics, list) else [topics]
         lines = self._cmd(cmd).splitlines()
         ret = []
         for l in lines:
-            m = re.match(
+            if m := re.match(
                 r" *(?P<broker>\d+) +(?P<topic>.+?) +(?P<partition>\d+) +(?P<start>-?\d*?) +(?P<end>-?\d*?) +(?P<error>.*) *",
-                l)
-            if m:
+                l,
+            ):
                 ret.append(
                     KclPartitionOffset(m['broker'], m['topic'],
                                        int(m['partition']),
@@ -386,8 +379,8 @@ class KCL:
                 if retry == 0:
                     raise
                 self._redpanda.logger.debug(
-                    "kcl retrying after exit code {}: {}".format(
-                        e.returncode, e.output))
+                    f"kcl retrying after exit code {e.returncode}: {e.output}"
+                )
                 time.sleep(1)
         # it looks impossible to reach this case, but pyright static analyzer
         # can't see that and deduces Optional[str] as return type.

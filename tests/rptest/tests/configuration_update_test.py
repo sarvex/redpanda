@@ -54,7 +54,7 @@ class ConfigurationUpdateTest(RedpandaTest):
 
         def controller_log_replicated():
             # make sure that we have new segments
-            node_partitions = dict()
+            node_partitions = {}
             for p in self.redpanda.storage().partitions(
                     "redpanda", "controller"):
                 node_partitions[p.node.name] = p

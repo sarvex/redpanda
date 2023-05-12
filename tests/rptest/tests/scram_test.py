@@ -172,9 +172,7 @@ class ScramTest(BaseScramTest):
             self.logger.info(
                 f"Response: {resp.status_code} {resp.headers} {resp.text}")
 
-            if node == leader_node:
-                assert resp.status_code == 200
-            else:
+            if node != leader_node:
                 # Check we were redirected to the proper listener of the leader node
                 self.logger.info(
                     f"Response (redirect): {resp.status_code} {resp.headers.get('location', None)} {resp.text} {resp.history}"
@@ -199,7 +197,7 @@ class ScramTest(BaseScramTest):
                 self.logger.info(
                     f"Response (follow redirect): {resp.status_code} {resp.text} {resp.history}"
                 )
-                assert resp.status_code == 200
+            assert resp.status_code == 200
 
     @cluster(num_nodes=3)
     def test_scram(self):
@@ -217,8 +215,6 @@ class ScramTest(BaseScramTest):
             raise e
         except Exception as e:
             self.redpanda.logger.debug(e)
-            pass
-
         # but it works with correct password
         client = self.make_superuser_client()
         topics = client.topics()
@@ -246,8 +242,6 @@ class ScramTest(BaseScramTest):
             raise e
         except Exception as e:
             self.redpanda.logger.debug(e)
-            pass
-
         # recreate user
         algorithm = self.redpanda.SUPERUSER_CREDENTIALS.algorithm
         password = self.create_user(username, algorithm)
@@ -272,8 +266,6 @@ class ScramTest(BaseScramTest):
             raise e
         except Exception as e:
             self.redpanda.logger.debug(e)
-            pass
-
         # but works ok with new password
         client = self.make_superuser_client(password_override=new_password)
         topics = client.topics()
@@ -426,7 +418,7 @@ class InvalidNewUserStrings(BaseScramTest):
     def generate_string_with_control_character(length: int):
         rv = ''.join(
             random.choices(string.ascii_letters + CONTROL_CHARS, k=length))
-        if not any(char in rv for char in CONTROL_CHARS):
+        if all(char not in rv for char in CONTROL_CHARS):
             rv = ''.join(
                 random.choices(string.ascii_letters + CONTROL_CHARS, k=length))
         return rv

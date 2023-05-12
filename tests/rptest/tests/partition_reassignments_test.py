@@ -60,8 +60,8 @@ def check_execute_reassign_partitions(lines: list[str], reassignments: dict,
         tp_match = tp_re.match(tp)
         logger.debug(f"topic partition match: {tp}, {tp_match}")
         assert tp_match is not None
-        assert tp_match.group("topic") in topic_names
-        assert int(tp_match.group("pid")) in partition_idxs
+        assert tp_match["topic"] in topic_names
+        assert int(tp_match["pid"]) in partition_idxs
 
     # The next lines are exact strings
     assert lines.pop().strip(
@@ -76,7 +76,7 @@ def check_execute_reassign_partitions(lines: list[str], reassignments: dict,
     assert len(lines.pop()) == 0
     assert lines.pop().strip() == "Current partition replica assignment"
 
-    if len(lines) != 0:
+    if lines:
         raise RuntimeError(f"Unexpected output: {lines}")
 
 
@@ -109,10 +109,7 @@ def check_verify_reassign_partitions(lines: list[str], reassignments: dict,
 
     def re_match(line):
         m = tp_re_complete.match(line)
-        if m is not None:
-            return m
-
-        return tp_re_no_active.match(line)
+        return m if m is not None else tp_re_no_active.match(line)
 
     line = lines.pop().strip()
     tp_match = re_match(line)
@@ -124,7 +121,7 @@ def check_verify_reassign_partitions(lines: list[str], reassignments: dict,
         tp_match = re_match(line)
         logger.debug(f"topic partition match: {line} {tp_match}")
 
-    if len(lines) != 0:
+    if lines:
         raise RuntimeError(f"Unexpected output: {lines}")
 
 
@@ -150,14 +147,14 @@ def check_cancel_reassign_partitions(lines: list[str], reassignments: dict,
         tp_match = tp_re.match(tp)
         logger.debug(f"topic partition match: {tp}, {tp_match}")
         assert tp_match is not None
-        assert tp_match.group("topic") in topic_names
-        assert int(tp_match.group("pid")) in partition_idxs
+        assert tp_match["topic"] in topic_names
+        assert int(tp_match["pid"]) in partition_idxs
 
     # The next lines are exact strings
     assert lines.pop().strip(
     ) == "None of the specified partition moves are active."
 
-    if len(lines) != 0:
+    if lines:
         raise RuntimeError(f"Unexpected output: {lines}")
 
 
@@ -251,9 +248,10 @@ class PartitionReassignmentsTest(RedpandaTest):
             wait_until(lambda: prod.num_acked > num_messages,
                            timeout_sec=180,
                            err_msg="Producer failed to produce messages for %ds." %\
-                           60)
-            self.logger.info("Stopping producer after writing up to offsets %s" %\
-                            str(prod.last_acked_offsets))
+                               60)
+            self.logger.info(
+                f"Stopping producer after writing up to offsets {str(prod.last_acked_offsets)}"
+            )
             prod.stop()
 
     def initial_setup_steps(self,
@@ -274,12 +272,10 @@ class PartitionReassignmentsTest(RedpandaTest):
         assert "throughput" in producer_config
         assert "topics" in producer_config
 
-        producers = []
-        for topic in producer_config["topics"]:
-            producers.append(
-                self.make_producer(topic,
-                                   throughput=producer_config["throughput"]))
-
+        producers = [
+            self.make_producer(topic, throughput=producer_config["throughput"])
+            for topic in producer_config["topics"]
+        ]
         return initial_assignments, all_node_idx, producers
 
     def execute_reassign_partitions(self,
@@ -366,7 +362,7 @@ class PartitionReassignmentsTest(RedpandaTest):
         kcl = KCL(self.redpanda)
         alter_partition_reassignments_with_kcl(kcl, reassignments)
 
-        all_partition_idx = [p for p in range(self.PARTITION_COUNT)]
+        all_partition_idx = list(range(self.PARTITION_COUNT))
 
         # Test ListPartitionReassignments with specific topic-partitions
         responses = kcl.list_partition_reassignments({
@@ -428,9 +424,7 @@ class PartitionReassignmentsTest(RedpandaTest):
                 raise Exception(
                     "Even replica count accepted but it should be rejected")
             except RuntimeError as ex:
-                if str(ex) == "Number of replicas != topic replication factor":
-                    pass
-                else:
+                if str(ex) != "Number of replicas != topic replication factor":
                     raise
 
         try_even_replication_factor(reassignments)
@@ -546,9 +540,7 @@ class PartitionReassignmentsACLsTest(RedpandaTest):
             raise Exception(
                 f'AlterPartition with user {user_cred} passed. Expected fail.')
         except subprocess.CalledProcessError as e:
-            if e.output.startswith("CLUSTER_AUTHORIZATION_FAILED"):
-                pass
-            else:
+            if not e.output.startswith("CLUSTER_AUTHORIZATION_FAILED"):
                 raise
 
         tps_to_list = {self.topic: [0]}
@@ -557,9 +549,7 @@ class PartitionReassignmentsACLsTest(RedpandaTest):
             raise Exception(
                 f'ListPartition with user {user_cred} passed. Expected fail.')
         except subprocess.CalledProcessError as e:
-            if e.output.startswith("CLUSTER_AUTHORIZATION_FAILED"):
-                pass
-            else:
+            if not e.output.startswith("CLUSTER_AUTHORIZATION_FAILED"):
                 raise
 
         super_username, super_password, super_algorithm = self.redpanda.SUPERUSER_CREDENTIALS

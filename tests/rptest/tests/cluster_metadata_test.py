@@ -54,11 +54,10 @@ class MetadataTest(RedpandaTest):
         def get_node():
             if node == 'controller':
                 return self.redpanda.controller()
-            else:
-                n = self.redpanda.nodes[0]
-                while n == self.redpanda.controller():
-                    n = random.choice(self.redpanda.nodes)
-                return n
+            n = self.redpanda.nodes[0]
+            while n == self.redpanda.controller():
+                n = random.choice(self.redpanda.nodes)
+            return n
 
         node = get_node()
         node_id = self.redpanda.idx(node)

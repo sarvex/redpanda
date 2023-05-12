@@ -75,9 +75,7 @@ class RpkProducer(BackgroundThreadService):
                 self.logger.debug(line.rstrip())
                 self._output_line_count += 1
         except RemoteCommandError:
-            if self._stopping.is_set():
-                pass
-            else:
+            if not self._stopping.is_set():
                 raise
 
         self._redpanda.logger.debug(

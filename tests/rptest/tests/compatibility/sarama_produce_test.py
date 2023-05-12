@@ -39,8 +39,6 @@ class SaramaProduceTest(RedpandaTest):
 
     @cluster(num_nodes=3, log_allow_list=TX_ERROR_LOGS)
     def test_produce(self):
-        verifier_bin = "/opt/redpanda-tests/go/sarama/produce_test/produce_test"
-
         self.redpanda.logger.info("creating topics")
 
         rpk = RpkTool(self.redpanda)
@@ -48,6 +46,7 @@ class SaramaProduceTest(RedpandaTest):
 
         self.redpanda.logger.info("testing sarama produce")
         retries = 5
+        verifier_bin = "/opt/redpanda-tests/go/sarama/produce_test/produce_test"
         for i in range(0, retries):
             try:
                 cmd = "{verifier_bin} --brokers {brokers}".format(
@@ -58,9 +57,8 @@ class SaramaProduceTest(RedpandaTest):
                 break
             except subprocess.CalledProcessError as e:
                 error = str(e.output)
-                self.redpanda.logger.info("sarama produce failed with " +
-                                          error)
+                self.redpanda.logger.info(f"sarama produce failed with {error}")
                 if i + 1 != retries and NOT_LEADER_FOR_PARTITION in error:
                     sleep(5)
                     continue
-                raise DucktapeError("sarama produce failed with " + error)
+                raise DucktapeError(f"sarama produce failed with {error}")

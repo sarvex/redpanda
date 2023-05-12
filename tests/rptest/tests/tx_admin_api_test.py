@@ -74,7 +74,7 @@ class TxAdminTest(RedpandaTest):
                 txs_info = self.admin.get_transactions(topic.name, partition,
                                                        "kafka")
                 assert ('expired_transactions' not in txs_info)
-                if expected_pids == None:
+                if expected_pids is None:
                     expected_pids = set(
                         map(self.extract_pid, txs_info['active_transactions']))
                     assert (len(expected_pids) == 2)
@@ -162,7 +162,7 @@ class TxAdminTest(RedpandaTest):
         txs_info = self.admin.get_all_transactions()
         assert len(txs_info) == 1
 
-        expected_partitions = dict()
+        expected_partitions = {}
         tx = txs_info[0]
 
         assert tx["transactional_id"] == tx_id
