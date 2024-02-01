@@ -11,7 +11,7 @@ require (
 	github.com/go-logr/logr v1.2.3
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/json-iterator/go v1.1.12
-	github.com/moby/moby v20.10.23+incompatible
+	github.com/moby/moby v24.0.9+incompatible
 	github.com/moby/sys/mountinfo v0.6.2
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.26.0
