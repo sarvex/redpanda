@@ -30,7 +30,7 @@ setup(
         'jump-consistent-hash==3.2.0',
         'azure-storage-blob==12.14.1',
         'kafkatest@git+https://github.com/apache/kafka.git@058589b03db686803b33052d574ce887fb5cfbd1#egg=kafkatest&subdirectory=tests',
-        'grpcio==1.53.0',
+        'grpcio==1.53.2',
         'grpcio-tools==1.53',
     ],
     scripts=[],
